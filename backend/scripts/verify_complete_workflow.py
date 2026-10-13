@@ -1,11 +1,18 @@
 import sqlite3
+import sys
+from pathlib import Path
+
+# Ensure backend root is on sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
+
+from app.core.config import settings
 
 client = httpx.Client(base_url="http://127.0.0.1:8000/api/v1", timeout=10)
 
 # STEP 1: Verify dashboard before test
-conn = sqlite3.connect("data/db/localledger.db")
+conn = sqlite3.connect(str(settings.resolved_db_path))
 initial_docs = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
 initial_txs = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
 print(f"[1] Initial DB state: {initial_docs} documents, {initial_txs} transactions")

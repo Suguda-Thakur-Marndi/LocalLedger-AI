@@ -1,10 +1,18 @@
 import sqlite3
+import sys
+from pathlib import Path
+
+# Ensure backend root is on sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import httpx
 import pymupdf
+
+from app.core.config import settings
 from app.services.receipts.receipt_parser import extract_heuristically
 
 client = httpx.Client(base_url="http://127.0.0.1:8000/api/v1", timeout=30)
-conn = sqlite3.connect("data/db/localledger.db")
+conn = sqlite3.connect(str(settings.resolved_db_path))
 initial_docs = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
 initial_txs = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
 
