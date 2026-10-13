@@ -182,6 +182,7 @@ export const ReceiptReviewPage: React.FC = () => {
     currency,
     category,
     paymentMethod,
+    notes,
     confirmMutation,
   ])
 

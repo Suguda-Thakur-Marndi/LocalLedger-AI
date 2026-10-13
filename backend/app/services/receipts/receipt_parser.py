@@ -1,13 +1,10 @@
 import re
-from datetime import date
-from decimal import Decimal
 
 from app.schemas.receipt_review import FieldSuggestion, ReceiptReviewData
 from app.services.receipts.validation import (
     normalize_category,
     normalize_currency,
     parse_date,
-    parse_decimal,
     parse_optional_decimal,
 )
 

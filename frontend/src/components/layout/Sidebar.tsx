@@ -1,6 +1,5 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 
@@ -49,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
                 className="md:hidden p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-container min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="Close menu"
               >
-                <X className="h-5 w-5" />
+                <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             )}
           </div>

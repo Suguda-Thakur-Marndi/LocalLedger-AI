@@ -15,6 +15,7 @@ async def test_empty_ocr_output_no_fake_defaults():
 
     assert ollama_used is False
     assert model_name is None
+    assert isinstance(suggestions, dict)
     assert extracted.merchant is None
     assert extracted.transaction_date is None
     assert extracted.subtotal is None
@@ -28,7 +29,7 @@ async def test_empty_ocr_output_no_fake_defaults():
 @pytest.mark.asyncio
 async def test_whitespace_ocr_output():
     """Whitespace-only text must be treated as empty extraction."""
-    extracted, suggestions, warnings, _, _ = await extract_receipt_data("   \n\n\t  ")
+    extracted, _, warnings, _, _ = await extract_receipt_data("   \n\n\t  ")
     assert extracted.merchant is None
     assert extracted.total is None
     assert len(warnings) > 0
@@ -48,7 +49,7 @@ async def test_ollama_unavailable_graceful_fallback(monkeypatch):
     Date: 2026-01-10
     Total: $50.00
     """
-    extracted, suggestions, warnings, ollama_used, _ = await extract_receipt_data(raw_text)
+    extracted, _, _, ollama_used, _ = await extract_receipt_data(raw_text)
 
     assert ollama_used is False
     assert extracted.merchant == "Acme Corp"
@@ -73,7 +74,7 @@ async def test_invalid_model_json_fallback(monkeypatch):
     Date: 2026-03-01
     Total: $12.50
     """
-    extracted, suggestions, warnings, ollama_used, _ = await extract_receipt_data(raw_text)
+    extracted, _, _, ollama_used, _ = await extract_receipt_data(raw_text)
 
     assert ollama_used is False
     assert extracted.merchant == "Harbor Cafe"
@@ -84,7 +85,7 @@ async def test_invalid_model_json_fallback(monkeypatch):
 async def test_missing_fields_validation_warnings():
     """Missing fields should produce validation warnings, not silent fabricated values."""
     raw_text = "Some random unformatted document without amounts or dates."
-    extracted, suggestions, warnings, _, _ = await extract_receipt_data(raw_text)
+    extracted, _, warnings, _, _ = await extract_receipt_data(raw_text)
 
     assert extracted.total is None
     assert extracted.transaction_date is None
@@ -159,7 +160,7 @@ TOTAL: 193.00
 VISA CARD 193.00
 """
     # Test heuristic fallback directly
-    extracted, suggestions, warnings, ollama_used, _ = await extract_receipt_data(sample_ocr)
+    extracted, _, _, _, _ = await extract_receipt_data(sample_ocr)
 
     assert extracted.merchant == "OJC MARKETING SDN BHD"
     assert extracted.invoice_number == "PEGIV-1030765"
