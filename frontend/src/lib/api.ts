@@ -63,6 +63,12 @@ export const api = {
     return request<ReceiptReviewPayload>(`/documents/${documentId}/review`)
   },
 
+  reextractDocument: (documentId: string): Promise<ReceiptReviewPayload> => {
+    return request<ReceiptReviewPayload>(`/documents/${documentId}/reextract`, {
+      method: 'POST',
+    })
+  },
+
   getDocumentFileUrl: (documentId: string): string => {
     return `${API_BASE}/documents/${documentId}/file`
   },

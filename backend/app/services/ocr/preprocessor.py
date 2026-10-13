@@ -27,17 +27,18 @@ def preprocess_image_for_ocr(image_bytes: bytes) -> Image.Image:
         # Convert to Grayscale
         gray = img.convert("L")
 
-        # Enhance contrast
-        enhancer = ImageEnhance.Contrast(gray)
-        enhanced = enhancer.enhance(1.8)
-
-        # Scale up if image resolution is very small (under 1000px wide)
-        if enhanced.width < 1000:
+        # Scale up if image resolution is small (receipts typically benefit from 300+ DPI equivalent)
+        enhanced = gray
+        if enhanced.width < 1500 or enhanced.height < 1500:
             scale_factor = 2
             enhanced = enhanced.resize(
                 (enhanced.width * scale_factor, enhanced.height * scale_factor),
                 Image.Resampling.LANCZOS,
             )
+
+        # Enhance contrast gently (1.4 - 1.5 avoids washing out dotted matrix or faded receipt print)
+        enhancer = ImageEnhance.Contrast(enhanced)
+        enhanced = enhancer.enhance(1.45)
 
         return enhanced
     except Exception as e:

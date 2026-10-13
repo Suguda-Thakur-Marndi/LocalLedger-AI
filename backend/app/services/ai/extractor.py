@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from datetime import date
 from decimal import Decimal
 
@@ -16,7 +17,7 @@ from app.services.receipts.validation import (
     normalize_category,
     normalize_currency,
     parse_date,
-    parse_decimal,
+    parse_optional_decimal,
     validate_monetary_amounts,
 )
 
@@ -48,14 +49,29 @@ async def extract_receipt_data(
 ) -> tuple[ReceiptReviewData, dict[str, FieldSuggestion], list[str], bool, str | None]:
     """
     Main extraction orchestrator:
-    1. Attempts extraction via local Ollama.
-    2. Validates JSON and amounts using Decimal.
-    3. Falls back gracefully to regex/heuristic rules if Ollama is unavailable.
-    4. Generates mathematical integrity warnings.
+    1. Rejects blank OCR text with clear warning.
+    2. Attempts neural extraction via local Ollama (qwen2.5:1.5b).
+    3. Validates JSON, types, amounts, and dates without fabricating fake fallbacks.
+    4. Falls back to regex/heuristic rules if Ollama is unavailable.
+    5. Emits mathematical reconciliation and confidence warnings.
     """
     if not text.strip():
-        extracted, suggestions = extract_heuristically("")
-        warnings = ["Document appears blank or no text could be extracted."]
+        extracted = ReceiptReviewData(
+            merchant=None,
+            invoice_number=None,
+            transaction_date=None,
+            subtotal=None,
+            tax=None,
+            total=None,
+            currency=None,
+            category="Other",
+            payment_method=None,
+            notes=None,
+            line_items=[],
+        )
+        suggestions: dict[str, FieldSuggestion] = {}
+        warnings = ["Document text is empty or OCR did not detect legible text. Please verify or re-upload."]
+        logger.warning("Extraction requested on empty or whitespace text.")
         return extracted, suggestions, warnings, False, None
 
     # Step 1: Check if Ollama is accessible
@@ -63,28 +79,32 @@ async def extract_receipt_data(
     if ollama_health.get("connected") and ollama_health.get("model_present"):
         active_model = ollama_health.get("active_model") or settings.OLLAMA_MODEL
         user_prompt = RECEIPT_EXTRACTION_USER_PROMPT.format(receipt_text=text[:4000])
+        
+        start_time = time.time()
         response_str = await ollama_client.generate_json(
             prompt=user_prompt,
             system_prompt=RECEIPT_EXTRACTION_SYSTEM_PROMPT,
             model=active_model,
         )
+        latency_ms = (time.time() - start_time) * 1000
 
         parsed_json = _clean_json_response(response_str) if response_str else None
         if parsed_json and isinstance(parsed_json, dict):
-            # Parse fields safely
+            # Parse fields safely without fabricating defaults
             merchant = str(parsed_json.get("merchant") or "").strip() or None
             invoice_num = str(parsed_json.get("invoice_number") or "").strip() or None
-            tx_date = parse_date(parsed_json.get("date")) or parse_date(text) or date.today()
-            subtotal = parse_decimal(parsed_json.get("subtotal"))
-            tax = parse_decimal(parsed_json.get("tax"))
-            total = parse_decimal(parsed_json.get("total"))
+            tx_date = parse_date(parsed_json.get("date")) or parse_date(text)
+            subtotal = parse_optional_decimal(parsed_json.get("subtotal"))
+            tax = parse_optional_decimal(parsed_json.get("tax"))
+            total = parse_optional_decimal(parsed_json.get("total"))
             currency = normalize_currency(parsed_json.get("currency"), text)
             category = normalize_category(parsed_json.get("category"))
             pm = str(parsed_json.get("payment_method") or "").strip() or None
             notes = str(parsed_json.get("notes") or "").strip() or None
+            line_items = parsed_json.get("line_items") or []
 
             extracted = ReceiptReviewData(
-                merchant=merchant or "Unknown Merchant",
+                merchant=merchant,
                 invoice_number=invoice_num,
                 transaction_date=tx_date,
                 subtotal=subtotal,
@@ -94,58 +114,94 @@ async def extract_receipt_data(
                 category=category,
                 payment_method=pm,
                 notes=notes,
+                line_items=line_items if isinstance(line_items, list) else [],
             )
 
             suggestions = {
                 "merchant": FieldSuggestion(
                     value=extracted.merchant,
-                    confidence=0.9 if merchant else 0.4,
+                    confidence=0.92 if merchant else 0.0,
                     source="ai",
                 ),
                 "invoice_number": FieldSuggestion(
                     value=extracted.invoice_number,
-                    confidence=0.85 if invoice_num else 0.2,
+                    confidence=0.9 if invoice_num else 0.0,
                     source="ai",
                 ),
                 "transaction_date": FieldSuggestion(
                     value=extracted.transaction_date,
-                    confidence=0.9 if tx_date else 0.4,
+                    confidence=0.9 if tx_date else 0.0,
                     source="ai",
                 ),
                 "subtotal": FieldSuggestion(
-                    value=float(extracted.subtotal),
-                    confidence=0.85 if subtotal > Decimal(0) else 0.3,
+                    value=float(extracted.subtotal) if subtotal is not None else None,
+                    confidence=0.9 if subtotal is not None else 0.0,
                     source="ai",
                 ),
                 "tax": FieldSuggestion(
-                    value=float(extracted.tax),
-                    confidence=0.85 if tax > Decimal(0) else 0.3,
+                    value=float(extracted.tax) if tax is not None else None,
+                    confidence=0.9 if tax is not None else 0.0,
                     source="ai",
                 ),
                 "total": FieldSuggestion(
-                    value=float(extracted.total),
-                    confidence=0.95 if total > Decimal(0) else 0.3,
+                    value=float(extracted.total) if total is not None else None,
+                    confidence=0.95 if total is not None else 0.0,
                     source="ai",
                 ),
-                "currency": FieldSuggestion(value=extracted.currency, confidence=0.9, source="ai"),
+                "currency": FieldSuggestion(
+                    value=extracted.currency,
+                    confidence=0.9 if currency else 0.0,
+                    source="ai",
+                ),
                 "category": FieldSuggestion(
                     value=extracted.category,
-                    confidence=0.8,
+                    confidence=0.85,
                     source="ai",
                     is_inferred=True,
                 ),
                 "payment_method": FieldSuggestion(
                     value=extracted.payment_method,
-                    confidence=0.8 if pm else 0.2,
+                    confidence=0.85 if pm else 0.0,
                     source="ai",
                 ),
             }
 
             warnings = validate_monetary_amounts(subtotal, tax, total)
-            return extracted, suggestions, warnings, True, settings.OLLAMA_MODEL
+            if not merchant:
+                warnings.append("Merchant name could not be confidently detected from the document.")
+            if not tx_date:
+                warnings.append("Transaction date could not be detected; please review before confirming.")
+            if not currency:
+                warnings.append("Currency could not be detected automatically; please choose currency.")
+
+            logger.info(
+                "Ollama extraction success: model=%s, latency=%.1fms, merchant=%s, invoice=%s, date=%s, total=%s %s, warnings=%d",
+                active_model,
+                latency_ms,
+                merchant or "None",
+                invoice_num or "None",
+                str(tx_date) if tx_date else "None",
+                str(total) if total is not None else "None",
+                currency or "None",
+                len(warnings),
+            )
+            return extracted, suggestions, warnings, True, active_model
+        else:
+            logger.warning(
+                "Ollama extraction failed to parse JSON (model=%s, latency=%.1fms, output_len=%d)",
+                active_model,
+                latency_ms,
+                len(response_str or ""),
+            )
 
     # Step 2: Fallback to Heuristic Extraction (OCR rules)
-    logger.info("Using heuristic/rule-based OCR extractor (Ollama offline or bypassed).")
+    logger.info("Using heuristic/rule-based OCR extractor (Ollama offline or parsing bypassed).")
     extracted, suggestions = extract_heuristically(text)
     warnings = validate_monetary_amounts(extracted.subtotal, extracted.tax, extracted.total)
+    if not extracted.merchant:
+        warnings.append("Merchant name could not be identified.")
+    if not extracted.transaction_date:
+        warnings.append("Transaction date could not be identified.")
+    if not extracted.currency:
+        warnings.append("Currency could not be identified.")
     return extracted, suggestions, warnings, False, None

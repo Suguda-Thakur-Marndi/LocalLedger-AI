@@ -31,39 +31,41 @@ COMMON_CURRENCIES = {
 }
 
 
-def parse_decimal(value: any) -> Decimal:
-    """Safely convert any numeric value or string to Decimal with 2 decimal places."""
+def parse_optional_decimal(value: any) -> Decimal | None:
+    """Safely convert any numeric value or string to Decimal with 2 decimal places, or None if missing."""
     if value is None:
-        return Decimal("0.00")
+        return None
     if isinstance(value, (int, float, Decimal)):
         try:
             return Decimal(str(value)).quantize(Decimal("0.01"))
         except (InvalidOperation, TypeError):
-            return Decimal("0.00")
+            return None
 
-    # Clean string
     text = str(value).strip()
-    # Remove currency symbols and common spacing
     cleaned = re.sub(r"[^\d.,-]", "", text)
     if not cleaned:
-        return Decimal("0.00")
+        return None
 
-    # Handle comma as decimal separator if format is e.g. "12,50"
     if "," in cleaned and "." not in cleaned:
         cleaned = cleaned.replace(",", ".")
     elif "," in cleaned and "." in cleaned:
-        # e.g. "1,234.56" -> remove thousands comma
         cleaned = cleaned.replace(",", "")
 
     try:
         val = Decimal(cleaned)
         return val.quantize(Decimal("0.01"))
     except (InvalidOperation, ValueError):
-        return Decimal("0.00")
+        return None
+
+
+def parse_decimal(value: any, default: Decimal = Decimal("0.00")) -> Decimal:
+    """Safely convert any numeric value or string to Decimal with 2 decimal places."""
+    res = parse_optional_decimal(value)
+    return res if res is not None else default
 
 
 def parse_date(date_str: any) -> date | None:
-    """Parse various date formats into date object."""
+    """Parse various date formats into date object without defaulting to today."""
     if not date_str:
         return None
     if isinstance(date_str, date) and not isinstance(date_str, datetime):
@@ -74,8 +76,8 @@ def parse_date(date_str: any) -> date | None:
     text = str(date_str).strip()
     formats = [
         "%Y-%m-%d",
-        "%m/%d/%Y",
         "%d/%m/%Y",
+        "%m/%d/%Y",
         "%Y/%m/%d",
         "%d-%m-%Y",
         "%m-%d-%Y",
@@ -95,6 +97,14 @@ def parse_date(date_str: any) -> date | None:
     if match:
         try:
             return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except ValueError:
+            pass
+
+    # Try regex matching DD/MM/YYYY
+    match_dmy = re.search(r"\b(0[1-9]|[12]\d|3[01])[-/](0[1-9]|1[0-2])[-/](20\d\d)\b", text)
+    if match_dmy:
+        try:
+            return date(int(match_dmy.group(3)), int(match_dmy.group(2)), int(match_dmy.group(1)))
         except ValueError:
             pass
 
@@ -132,21 +142,49 @@ def normalize_category(cat: str | None) -> str:
         return "Utilities"
     if any(k in cat_lower for k in ["legal", "accounting", "consulting", "service"]):
         return "Professional Services"
-    if any(k in cat_lower for k in ["hardware", "computer", "laptop", "monitor", "equipment"]):
+    if any(k in cat_lower for k in ["shoe", "shoes", "boot", "hardware", "computer", "laptop", "monitor", "equipment", "tool", "wear"]):
         return "Equipment"
     return "Other"
 
 
-def normalize_currency(curr: str | None, full_text: str = "") -> str:
-    """Normalize currency to 3-letter ISO code."""
+KNOWN_CURRENCY_CODES = {
+    "USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "INR", "MYR", "SGD",
+    "NZD", "HKD", "SEK", "NOK", "DKK", "ZAR", "BRL", "MXN", "AED", "SAR",
+    "THB", "IDR", "PHP", "VND", "PLN", "TRY", "CNY", "KRW"
+}
+
+
+def normalize_currency(curr: str | None, full_text: str = "") -> str | None:
+    """
+    Normalize currency to 3-letter ISO code.
+    Returns None if currency cannot be reliably detected.
+    Does NOT default to USD when the currency is unknown.
+    """
     if curr:
         c = curr.upper().strip()
-        if c in COMMON_CURRENCIES.values():
-            return c
+        # Direct lookup in known symbols
         if curr in COMMON_CURRENCIES:
             return COMMON_CURRENCIES[curr]
+        if c in COMMON_CURRENCIES:
+            return COMMON_CURRENCIES[c]
+        if c == "RM":
+            return "MYR"
+        if c == "S$":
+            return "SGD"
+        if c in KNOWN_CURRENCY_CODES:
+            return c
+        # Reject GST/VAT tax rate markers often confused for currency
+        if c in {"SR", "ZR", "TX", "GST", "VAT", "TAX", "TOT", "SUB"}:
+            c = None
+        elif re.match(r"^[A-Z]{3}$", c):
+            return c
 
-    # Detect symbol in full document text
+    # Contextual check in document text
+    text_upper = full_text.upper()
+    if any(kw in text_upper for kw in ["MYR", "RINGGIT", "JOHOR", "MASAI", "KUALA LUMPUR", "SELANGOR", "PENANG", "MALAYSIA"]):
+        return "MYR"
+    if re.search(r"\bRM\s*\d+", full_text):
+        return "MYR"
     if "€" in full_text:
         return "EUR"
     if "£" in full_text:
@@ -155,25 +193,36 @@ def normalize_currency(curr: str | None, full_text: str = "") -> str:
         return "JPY"
     if "CAD" in full_text or "C$" in full_text:
         return "CAD"
+    if "AUD" in full_text or "A$" in full_text:
+        return "AUD"
+    if "SGD" in full_text or "S$" in full_text:
+        return "SGD"
     if "$" in full_text:
         return "USD"
 
-    return "USD"
+    return None
 
 
-def validate_monetary_amounts(subtotal: Decimal, tax: Decimal, total: Decimal) -> list[str]:
+def validate_monetary_amounts(
+    subtotal: Decimal | None,
+    tax: Decimal | None,
+    total: Decimal | None,
+) -> list[str]:
     """Check mathematical coherence between Subtotal, Tax, and Total."""
     warnings = []
-    if total <= Decimal("0.00"):
-        warnings.append("Total amount could not be determined or is $0.00.")
+    if total is None:
+        warnings.append("Total amount could not be determined from the document.")
+    elif total <= Decimal("0.00"):
+        warnings.append("Total amount extracted is $0.00 or negative; please verify with the original receipt.")
 
-    if subtotal > Decimal("0.00") and total > Decimal("0.00"):
-        expected_total = subtotal + tax
+    if subtotal is not None and total is not None:
+        effective_tax = tax if tax is not None else Decimal("0.00")
+        expected_total = subtotal + effective_tax
         diff = abs(expected_total - total)
         # Allow small deviation (e.g. up to 0.05) for rounding or tips
         if diff > Decimal("0.05"):
             warnings.append(
-                f"Subtotal ({subtotal}) + Tax ({tax}) = {expected_total}, which differs from Total ({total}) by {diff}."
+                f"Subtotal ({subtotal}) + Tax ({effective_tax}) = {expected_total}, which differs from Total ({total}) by {diff}."
             )
 
     return warnings

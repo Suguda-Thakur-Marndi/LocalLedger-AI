@@ -87,6 +87,15 @@ async def upload_document(
     storage_name = generate_storage_filename(clean_filename)
     target_path = resolve_safe_upload_path(storage_name)
 
+    logger.info(
+        "Received file upload: name=%s, mime=%s, size=%d bytes, hash=%s, ocr_available=%s",
+        clean_filename,
+        actual_mime,
+        len(content),
+        sha256_hash[:8],
+        ocr_service.is_available(),
+    )
+
     # Save file to disk
     with open(target_path, "wb") as f:
         f.write(content)
@@ -102,7 +111,22 @@ async def upload_document(
             extracted_text = ocr_service.extract_text(preprocessed_img)
     except Exception as e:
         logger.warning("Text extraction exception: %s", str(e))
-        error_details = f"Text extraction warning: {e!s}"
+        error_details = f"Text extraction failed: {e!s}"
+
+    if not extracted_text:
+        if not ocr_service.is_available():
+            error_details = "OCR engine is not installed or configured. Cannot extract text from image."
+        elif not error_details:
+            error_details = "OCR returned no legible text from this document."
+        processing_status = "error"
+        logger.warning(
+            "Document '%s' produced empty OCR output (engine_available=%s): %s",
+            clean_filename,
+            ocr_service.is_available(),
+            error_details,
+        )
+    else:
+        processing_status = "extracted"
 
     # 6. Create Document record
     doc = Document(
@@ -111,7 +135,7 @@ async def upload_document(
         mime_type=actual_mime,
         file_size=len(content),
         sha256_hash=sha256_hash,
-        processing_status="extracted" if extracted_text else "pending",
+        processing_status=processing_status,
         ocr_text=extracted_text,
         error_details=error_details,
     )
@@ -155,10 +179,90 @@ async def get_document_for_review(document_id: str, db: Session = Depends(get_db
         raise NotFoundError(f"Document with ID '{document_id}' not found.")
 
     text = doc.ocr_text or ""
+
+    # Self-heal / automatic OCR retry if document was stored with empty OCR text previously
+    if not text.strip():
+        file_path = resolve_safe_upload_path(doc.storage_filename)
+        if file_path.is_file() and ocr_service.is_available():
+            try:
+                content = file_path.read_bytes()
+                if doc.mime_type == "application/pdf":
+                    re_text, _ = extract_text_from_pdf(content)
+                else:
+                    preprocessed_img = preprocess_image_for_ocr(content)
+                    re_text = ocr_service.extract_text(preprocessed_img)
+
+                if re_text.strip():
+                    text = re_text
+                    doc.ocr_text = text
+                    doc.processing_status = "extracted"
+                    doc.error_details = None
+                    db.commit()
+                    logger.info("Automatically extracted %d chars for previously pending document %s", len(text), doc.id)
+            except Exception as e:
+                logger.warning("Auto-retry OCR failed for document %s: %s", doc.id, str(e))
+
     extracted, suggestions, warnings, ollama_used, model_name = await extract_receipt_data(text)
 
-    # Truncate preview for safe display
+    if doc.error_details and doc.error_details not in warnings:
+        warnings.insert(0, doc.error_details)
+
     preview = text[:2000] if text else "No text extracted from document."
+
+    return ReceiptReviewPayload(
+        document_id=doc.id,
+        original_filename=doc.original_filename,
+        mime_type=doc.mime_type,
+        processing_status=doc.processing_status,
+        extracted=extracted,
+        suggestions=suggestions,
+        ocr_text_preview=preview,
+        warnings=warnings,
+        ollama_used=ollama_used,
+        model_name=model_name,
+    )
+
+
+@router.post("/{document_id}/reextract", response_model=ReceiptReviewPayload)
+async def reextract_document(document_id: str, db: Session = Depends(get_db)):
+    """Explicitly re-run OCR and Ollama extraction on an existing uploaded document."""
+    doc = db.execute(select(Document).where(Document.id == document_id)).scalar_one_or_none()
+    if not doc:
+        raise NotFoundError(f"Document with ID '{document_id}' not found.")
+
+    file_path = resolve_safe_upload_path(doc.storage_filename)
+    if not file_path.is_file():
+        raise NotFoundError("Stored document file was not found on local disk.")
+
+    content = file_path.read_bytes()
+    extracted_text = ""
+    error_details = None
+
+    try:
+        if doc.mime_type == "application/pdf":
+            extracted_text, _ = extract_text_from_pdf(content)
+        else:
+            preprocessed_img = preprocess_image_for_ocr(content)
+            extracted_text = ocr_service.extract_text(preprocessed_img)
+    except Exception as e:
+        logger.warning("Re-extraction exception for %s: %s", document_id, str(e))
+        error_details = f"Text extraction failed: {e!s}"
+
+    if not extracted_text:
+        doc.processing_status = "error"
+        doc.error_details = error_details or "OCR produced empty text."
+    else:
+        doc.ocr_text = extracted_text
+        doc.processing_status = "extracted"
+        doc.error_details = None
+
+    db.commit()
+
+    extracted, suggestions, warnings, ollama_used, model_name = await extract_receipt_data(extracted_text)
+    if doc.error_details and doc.error_details not in warnings:
+        warnings.insert(0, doc.error_details)
+
+    preview = extracted_text[:2000] if extracted_text else "No text extracted from document."
 
     return ReceiptReviewPayload(
         document_id=doc.id,

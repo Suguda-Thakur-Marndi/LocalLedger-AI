@@ -16,13 +16,14 @@ class ReceiptReviewData(BaseModel):
     merchant: str | None = None
     invoice_number: str | None = None
     transaction_date: date | None = None
-    subtotal: Decimal = Decimal("0.00")
-    tax: Decimal = Decimal("0.00")
-    total: Decimal = Decimal("0.00")
-    currency: str = "USD"
+    subtotal: Decimal | None = None
+    tax: Decimal | None = None
+    total: Decimal | None = None
+    currency: str | None = None
     category: str = "Other"
     payment_method: str | None = None
     notes: str | None = None
+    line_items: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ReceiptReviewPayload(BaseModel):

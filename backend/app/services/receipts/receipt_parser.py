@@ -8,6 +8,7 @@ from app.services.receipts.validation import (
     normalize_currency,
     parse_date,
     parse_decimal,
+    parse_optional_decimal,
 )
 
 
@@ -59,14 +60,11 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
     # 3. Date
     tx_date = parse_date(text)
     date_conf = 0.7 if tx_date else 0.0
-    if not tx_date:
-        tx_date = date.today()
-        date_conf = 0.2
 
     # 4. Amounts
     # Find Total
-    total_val = Decimal("0.00")
-    total_conf = 0.2
+    total_val = None
+    total_conf = 0.0
     total_patterns = [
         r"(?:grand\s+total|total\s+amount|total|balance\s+due|amount\s+due|net\s+payable)[\s:]*[$€£]?\s*([0-9]+[.,][0-9]{2})",
         r"[$€£]\s*([0-9]+[.,][0-9]{2})\s*$",
@@ -74,47 +72,53 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
     for pattern in total_patterns:
         matches = re.findall(pattern, text, re.IGNORECASE | re.MULTILINE)
         if matches:
-            total_val = parse_decimal(matches[-1])
-            total_conf = 0.7
-            break
+            total_val = parse_optional_decimal(matches[-1])
+            if total_val is not None:
+                total_conf = 0.7
+                break
 
     # Find Subtotal
-    subtotal_val = Decimal("0.00")
-    subtotal_conf = 0.2
+    subtotal_val = None
+    subtotal_conf = 0.0
     sub_match = re.search(
         r"(?:subtotal|sub\s+total|net\s+amount)[\s:]*[$€£]?\s*([0-9]+[.,][0-9]{2})",
         text,
         re.IGNORECASE,
     )
     if sub_match:
-        subtotal_val = parse_decimal(sub_match.group(1))
-        subtotal_conf = 0.7
+        subtotal_val = parse_optional_decimal(sub_match.group(1))
+        if subtotal_val is not None:
+            subtotal_conf = 0.7
 
     # Find Tax
-    tax_val = Decimal("0.00")
-    tax_conf = 0.2
+    tax_val = None
+    tax_conf = 0.0
     tax_match = re.search(
         r"(?:tax|vat|gst|sales\s+tax|hst)(?:\s*\([^)]*\))?[\s:]*[$€£]?\s*([0-9]+[.,][0-9]{2})",
         text,
         re.IGNORECASE,
     )
     if tax_match:
-        tax_val = parse_decimal(tax_match.group(1))
-        tax_conf = 0.7
+        tax_val = parse_optional_decimal(tax_match.group(1))
+        if tax_val is not None:
+            tax_conf = 0.7
 
     # If subtotal is missing but total and tax are present
-    if subtotal_val == Decimal("0.00") and total_val > Decimal("0.00"):
-        if tax_val > Decimal("0.00") and total_val > tax_val:
+    if subtotal_val is None and total_val is not None:
+        if tax_val is not None and total_val > tax_val:
             subtotal_val = total_val - tax_val
+            subtotal_conf = 0.5
         else:
             subtotal_val = total_val
+            subtotal_conf = 0.5
 
     # 5. Currency
     currency = normalize_currency(None, text)
+    curr_conf = 0.8 if currency else 0.0
 
     # 6. Payment method
     payment_method = None
-    pm_conf = 0.3
+    pm_conf = 0.0
     pm_match = re.search(
         r"\b(visa|mastercard|amex|american\s+express|discover|cash|debit|apple\s+pay|google\s+pay)\b",
         text,
@@ -129,7 +133,7 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
     category = normalize_category(merchant or text)
 
     extracted = ReceiptReviewData(
-        merchant=merchant or "Unknown Merchant",
+        merchant=merchant,
         invoice_number=invoice_num,
         transaction_date=tx_date,
         subtotal=subtotal_val,
@@ -139,26 +143,35 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
         category=category,
         payment_method=payment_method,
         notes=None,
+        line_items=[],
     )
 
     suggestions = {
         "merchant": FieldSuggestion(
-            value=extracted.merchant, confidence=merchant_conf, source="ocr_rules"
+            value=extracted.merchant, confidence=merchant_conf if merchant else 0.0, source="ocr_rules"
         ),
         "invoice_number": FieldSuggestion(
-            value=extracted.invoice_number, confidence=inv_conf, source="ocr_rules"
+            value=extracted.invoice_number, confidence=inv_conf if invoice_num else 0.0, source="ocr_rules"
         ),
         "transaction_date": FieldSuggestion(
             value=extracted.transaction_date, confidence=date_conf, source="ocr_rules"
         ),
         "subtotal": FieldSuggestion(
-            value=float(extracted.subtotal), confidence=subtotal_conf, source="ocr_rules"
+            value=float(extracted.subtotal) if extracted.subtotal is not None else None,
+            confidence=subtotal_conf,
+            source="ocr_rules",
         ),
-        "tax": FieldSuggestion(value=float(extracted.tax), confidence=tax_conf, source="ocr_rules"),
+        "tax": FieldSuggestion(
+            value=float(extracted.tax) if extracted.tax is not None else None,
+            confidence=tax_conf,
+            source="ocr_rules",
+        ),
         "total": FieldSuggestion(
-            value=float(extracted.total), confidence=total_conf, source="ocr_rules"
+            value=float(extracted.total) if extracted.total is not None else None,
+            confidence=total_conf,
+            source="ocr_rules",
         ),
-        "currency": FieldSuggestion(value=extracted.currency, confidence=0.8, source="ocr_rules"),
+        "currency": FieldSuggestion(value=extracted.currency, confidence=curr_conf, source="ocr_rules"),
         "category": FieldSuggestion(
             value=extracted.category, confidence=0.5, source="ocr_rules", is_inferred=True
         ),

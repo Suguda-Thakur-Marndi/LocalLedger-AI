@@ -43,17 +43,24 @@ export interface FieldSuggestion {
   is_inferred: boolean
 }
 
+export interface LineItem {
+  description: string
+  quantity?: number | null
+  total_amount?: number | null
+}
+
 export interface ReceiptReviewData {
   merchant?: string | null
   invoice_number?: string | null
   transaction_date?: string | null
-  subtotal: number | string
-  tax: number | string
-  total: number | string
-  currency: string
+  subtotal?: number | string | null
+  tax?: number | string | null
+  total?: number | string | null
+  currency?: string | null
   category: string
   payment_method?: string | null
   notes?: string | null
+  line_items?: LineItem[]
 }
 
 export interface ReceiptReviewPayload {

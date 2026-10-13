@@ -15,7 +15,30 @@ const CATEGORIES = [
   'Other',
 ]
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'INR']
+const CURRENCIES = [
+  'MYR',
+  'USD',
+  'EUR',
+  'GBP',
+  'CAD',
+  'AUD',
+  'SGD',
+  'JPY',
+  'CHF',
+  'INR',
+  'NZD',
+  'HKD',
+]
+
+const getCurrencySymbol = (curr: string) => {
+  if (curr === 'USD' || curr === 'CAD' || curr === 'AUD' || curr === 'SGD') return '$'
+  if (curr === 'EUR') return '€'
+  if (curr === 'GBP') return '£'
+  if (curr === 'MYR') return 'RM'
+  if (curr === 'JPY') return '¥'
+  if (curr === 'INR') return '₹'
+  return curr || '$'
+}
 
 export const ReceiptReviewPage: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>()
@@ -30,17 +53,17 @@ export const ReceiptReviewPage: React.FC = () => {
   const [isDocPreviewExpanded, setIsDocPreviewExpanded] = useState<boolean>(false)
   const [isFullscreenModalOpen, setIsFullscreenModalOpen] = useState<boolean>(false)
 
-  // Form Fields
+  // Form Fields (nullable / unpopulated by default to prevent fake values)
   const [merchant, setMerchant] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [transactionDate, setTransactionDate] = useState('')
-  const [currency, setCurrency] = useState('USD')
-  const [subtotal, setSubtotal] = useState<string>('0.00')
-  const [tax, setTax] = useState<string>('0.00')
+  const [currency, setCurrency] = useState('')
+  const [subtotal, setSubtotal] = useState<string>('')
+  const [tax, setTax] = useState<string>('')
   const [tip, setTip] = useState<string>('0.00')
-  const [total, setTotal] = useState<string>('0.00')
-  const [category, setCategory] = useState('Software & Subscriptions')
-  const [paymentMethod, setPaymentMethod] = useState('Apple Card (•••• 4109)')
+  const [total, setTotal] = useState<string>('')
+  const [category, setCategory] = useState('Equipment')
+  const [paymentMethod, setPaymentMethod] = useState('')
   const [taxTreatment, setTaxTreatment] = useState<'100' | 'split' | 'personal'>('100')
   const [notes, setNotes] = useState('')
 
@@ -65,6 +88,14 @@ export const ReceiptReviewPage: React.FC = () => {
     enabled: !!documentId,
   })
 
+  // Re-extraction mutation
+  const reextractMutation = useMutation({
+    mutationFn: () => api.reextractDocument(documentId!),
+    onSuccess: (updatedData) => {
+      queryClient.setQueryData(['receipt-review', documentId], updatedData)
+    },
+  })
+
   // Auto-populate form from extracted review data
   useEffect(() => {
     if (reviewData) {
@@ -72,14 +103,14 @@ export const ReceiptReviewPage: React.FC = () => {
       setMerchant(ext.merchant || '')
       setInvoiceNumber(ext.invoice_number || '')
       setTransactionDate(
-        ext.transaction_date ? String(ext.transaction_date) : new Date().toISOString().split('T')[0]
+        ext.transaction_date ? String(ext.transaction_date) : ''
       )
-      setCurrency(ext.currency || 'USD')
-      setSubtotal(String(ext.subtotal ?? '0.00'))
-      setTax(String(ext.tax ?? '0.00'))
-      setTotal(String(ext.total ?? '0.00'))
-      setCategory(ext.category || 'Software & Subscriptions')
-      setPaymentMethod(ext.payment_method || 'Apple Card (•••• 4109)')
+      setCurrency(ext.currency || '')
+      setSubtotal(ext.subtotal !== null && ext.subtotal !== undefined ? String(ext.subtotal) : '')
+      setTax(ext.tax !== null && ext.tax !== undefined ? String(ext.tax) : '')
+      setTotal(ext.total !== null && ext.total !== undefined ? String(ext.total) : '')
+      setCategory(ext.category || 'Equipment')
+      setPaymentMethod(ext.payment_method || '')
       setNotes(ext.notes || '')
     }
   }, [reviewData])
@@ -90,7 +121,7 @@ export const ReceiptReviewPage: React.FC = () => {
   const numTip = parseFloat(tip) || 0
   const numTotal = parseFloat(total) || 0
   const calculatedSum = Math.round((numSubtotal + numTax + numTip) * 100) / 100
-  const isBalanced = Math.abs(calculatedSum - numTotal) < 0.05
+  const isBalanced = Boolean(total && Math.abs(calculatedSum - numTotal) < 0.05)
 
   // Confirm receipt mutation
   const confirmMutation = useMutation({
@@ -109,14 +140,17 @@ export const ReceiptReviewPage: React.FC = () => {
       errors.merchant = 'Merchant name is required'
     }
     if (!transactionDate) {
-      errors.transactionDate = 'Transaction date is required'
+      errors.transactionDate = 'Transaction date is required (YYYY-MM-DD)'
+    }
+    if (!currency) {
+      errors.currency = 'Currency is required'
     }
     if (isNaN(numTotal) || numTotal <= 0) {
       errors.total = 'Please specify a valid total amount greater than 0'
     }
     setValidationErrors(errors)
     return Object.keys(errors).length === 0
-  }, [merchant, transactionDate, numTotal])
+  }, [merchant, transactionDate, currency, numTotal])
 
   const handleSave = useCallback(() => {
     if (!documentId) return
@@ -124,19 +158,32 @@ export const ReceiptReviewPage: React.FC = () => {
 
     const payload: ConfirmReceiptRequest = {
       document_id: documentId,
-      merchant: merchant.trim() || 'Unknown Merchant',
+      merchant: merchant.trim(),
       invoice_number: invoiceNumber.trim() || null,
-      transaction_date: transactionDate || new Date().toISOString().split('T')[0],
+      transaction_date: transactionDate,
       subtotal: parseFloat(subtotal) || 0,
       tax: parseFloat(tax) || 0,
       total: parseFloat(total) || 0,
-      currency: currency.toUpperCase(),
+      currency: (currency || 'USD').toUpperCase(),
       category: category || 'Other',
       payment_method: paymentMethod.trim() || null,
       notes: notes.trim() || null,
     }
     confirmMutation.mutate(payload)
-  }, [documentId, merchant, invoiceNumber, transactionDate, subtotal, tax, total, currency, category, paymentMethod, notes, validateForm, confirmMutation])
+  }, [
+    documentId,
+    validateForm,
+    merchant,
+    invoiceNumber,
+    transactionDate,
+    subtotal,
+    tax,
+    total,
+    currency,
+    category,
+    paymentMethod,
+    confirmMutation,
+  ])
 
   // Keyboard shortcut: ⌘↵ / Ctrl+Enter
   useEffect(() => {
@@ -307,6 +354,19 @@ export const ReceiptReviewPage: React.FC = () => {
 
           <div className="flex items-center justify-between w-full lg:w-auto gap-2">
             <button
+              type="button"
+              onClick={() => reextractMutation.mutate()}
+              disabled={reextractMutation.isPending}
+              className="inline-flex items-center gap-1 px-3 py-2 min-h-[40px] rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-xs sm:text-body-sm transition-all shadow-xs"
+              title="Re-run local OCR and AI extraction on this document"
+            >
+              <span className={`material-symbols-outlined text-[18px] ${reextractMutation.isPending ? 'animate-spin' : ''}`}>
+                refresh
+              </span>
+              <span>{reextractMutation.isPending ? 'Re-extracting...' : 'Retry Extraction'}</span>
+            </button>
+
+            <button
               onClick={() => navigate('/receipts')}
               className="inline-flex items-center gap-1 px-3 py-2 min-h-[40px] rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container/40 font-body-sm text-xs sm:text-body-sm transition-all"
             >
@@ -324,6 +384,25 @@ export const ReceiptReviewPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Review Warnings and Uncertainties Alerts Banner */}
+        {reviewData.warnings && reviewData.warnings.length > 0 && (
+          <div className="w-full mb-space-md p-space-sm sm:p-space-md rounded-xl bg-amber-500/10 border border-amber-500/30 text-on-surface flex items-start gap-3">
+            <span className="material-symbols-outlined text-amber-500 text-[22px] shrink-0 mt-0.5">
+              warning
+            </span>
+            <div className="flex flex-col gap-1 w-full">
+              <span className="font-headline-sm text-xs sm:text-headline-sm font-semibold text-amber-600 dark:text-amber-400">
+                Extraction Review Alerts ({reviewData.warnings.length})
+              </span>
+              <ul className="list-disc list-inside text-xs sm:text-body-sm text-on-surface-variant space-y-0.5">
+                {reviewData.warnings.map((w, idx) => (
+                  <li key={idx}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {/* Mobile Document Preview Toggle Accordion (Visible on < lg screens) */}
         <div className="block lg:hidden mb-space-md bg-surface-container-lowest rounded-xl shadow-xs border border-outline-variant/30 overflow-hidden">
@@ -562,20 +641,39 @@ export const ReceiptReviewPage: React.FC = () => {
                     precision_manufacturing
                   </span>
                   <h2 className="font-headline-sm uppercase tracking-tight font-bold text-on-surface">
-                    {merchant || 'ACME VENDOR'}
+                    {merchant || '— No Merchant Detected —'}
                   </h2>
                   <p className="font-body-sm text-[12px] text-on-surface-variant">
-                    Invoice: {invoiceNumber || 'INV-EXTRACTED'} • Date:{' '}
-                    {transactionDate || '2024-10-26'}
+                    Invoice: {invoiceNumber || '—'} • Date: {transactionDate || '—'}
                   </p>
                 </div>
+
+                {/* Line Items if detected */}
+                {reviewData.extracted.line_items && reviewData.extracted.line_items.length > 0 && (
+                  <div className="mb-4 pb-3 border-b border-surface-container space-y-1.5">
+                    <span className="font-label-caps text-label-caps uppercase text-on-surface-variant font-semibold">
+                      Extracted Line Items
+                    </span>
+                    {reviewData.extracted.line_items.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-surface-container-highest/40 last:border-0">
+                        <span className="font-medium text-on-surface truncate max-w-[200px]">{item.description}</span>
+                        <span className="text-on-surface-variant font-table-numeric">
+                          {item.quantity ? `Qty ${item.quantity} · ` : ''}
+                          {item.total_amount !== undefined && item.total_amount !== null
+                            ? `${getCurrencySymbol(currency)} ${item.total_amount}`
+                            : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Itemized Extraction Overlays */}
                 <div className="space-y-2 text-body-sm">
                   <div className="flex items-center justify-between py-1 relative">
                     <span className="text-on-surface-variant">Subtotal</span>
                     <span className="font-table-numeric font-medium text-on-surface">
-                      ${subtotal}
+                      {subtotal ? `${getCurrencySymbol(currency)} ${subtotal}` : '—'}
                     </span>
                     {showBBoxes && (
                       <div className="absolute -inset-0.5 bg-secondary-container/30 rounded pointer-events-none" />
@@ -583,14 +681,18 @@ export const ReceiptReviewPage: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between py-1 relative">
                     <span className="text-on-surface-variant">Tax Amount</span>
-                    <span className="font-table-numeric font-medium text-on-surface">${tax}</span>
+                    <span className="font-table-numeric font-medium text-on-surface">
+                      {tax ? `${getCurrencySymbol(currency)} ${tax}` : '—'}
+                    </span>
                     {showBBoxes && (
                       <div className="absolute -inset-0.5 bg-secondary-container/30 rounded pointer-events-none" />
                     )}
                   </div>
                   <div className="flex items-center justify-between py-2 border-t border-surface-container-highest font-headline-sm text-headline-sm text-on-surface mt-1 relative">
                     <span className="font-bold">Total Invoiced</span>
-                    <span className="font-table-numeric font-bold text-primary">${total}</span>
+                    <span className="font-table-numeric font-bold text-primary">
+                      {total ? `${getCurrencySymbol(currency)} ${total}` : '—'}
+                    </span>
                     {showBBoxes && (
                       <div className="absolute -inset-1 bg-secondary-container/50 rounded pointer-events-none" />
                     )}
@@ -747,13 +849,13 @@ export const ReceiptReviewPage: React.FC = () => {
                   )}
                 </div>
 
-                {!isBalanced && (
+                {!isBalanced && Boolean(total) && (
                   <div className="p-2.5 rounded-lg bg-tertiary-fixed/30 border border-tertiary/20 text-xs text-on-surface flex items-center gap-2">
                     <span className="material-symbols-outlined text-[16px] text-tertiary shrink-0">
                       info
                     </span>
                     <span>
-                      Subtotal (${subtotal}) + Tax (${tax}) + Tip (${tip}) = ${calculatedSum.toFixed(2)}, differing from total ${total}.
+                      Subtotal ({getCurrencySymbol(currency)} {subtotal || '0.00'}) + Tax ({getCurrencySymbol(currency)} {tax || '0.00'}) + Tip ({getCurrencySymbol(currency)} {tip || '0.00'}) = {getCurrencySymbol(currency)} {calculatedSum.toFixed(2)}, differing from total {getCurrencySymbol(currency)} {total}.
                     </span>
                   </div>
                 )}
@@ -764,20 +866,38 @@ export const ReceiptReviewPage: React.FC = () => {
                       className="font-label-md text-label-md text-on-surface font-medium"
                       htmlFor="currencyCode"
                     >
-                      Currency
+                      Currency *
                     </label>
                     <select
                       id="currencyCode"
                       value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                      className="w-full bg-surface-container-low focus:bg-surface-container-lowest px-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary"
+                      onChange={(e) => {
+                        setCurrency(e.target.value)
+                        if (validationErrors.currency) {
+                          setValidationErrors((prev) => ({ ...prev, currency: '' }))
+                        }
+                      }}
+                      className={`w-full bg-surface-container-low focus:bg-surface-container-lowest px-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border ${
+                        validationErrors.currency
+                          ? 'border-error ring-1 ring-error'
+                          : 'border-transparent focus:border-primary'
+                      }`}
                     >
+                      {!currency && <option value="">Select Currency</option>}
+                      {currency && !CURRENCIES.includes(currency) && (
+                        <option value={currency}>{currency}</option>
+                      )}
                       {CURRENCIES.map((c) => (
                         <option key={c} value={c}>
                           {c}
                         </option>
                       ))}
                     </select>
+                    {validationErrors.currency && (
+                      <p className="text-xs text-error font-medium mt-0.5">
+                        {validationErrors.currency}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-1">
@@ -788,8 +908,8 @@ export const ReceiptReviewPage: React.FC = () => {
                       Subtotal
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-on-surface-variant font-body-md">
-                        $
+                      <span className="absolute left-3 top-2.5 text-on-surface-variant font-body-md text-xs">
+                        {getCurrencySymbol(currency)}
                       </span>
                       <input
                         id="subtotalAmount"
@@ -797,7 +917,8 @@ export const ReceiptReviewPage: React.FC = () => {
                         step="0.01"
                         value={subtotal}
                         onChange={(e) => setSubtotal(e.target.value)}
-                        className="w-full bg-surface-container-low focus:bg-surface-container-lowest pl-7 pr-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-table-numeric text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary"
+                        placeholder="0.00"
+                        className="w-full bg-surface-container-low focus:bg-surface-container-lowest pl-9 pr-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-table-numeric text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary"
                       />
                     </div>
                   </div>
@@ -810,8 +931,8 @@ export const ReceiptReviewPage: React.FC = () => {
                       Tax / VAT
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-on-surface-variant font-body-md">
-                        $
+                      <span className="absolute left-3 top-2.5 text-on-surface-variant font-body-md text-xs">
+                        {getCurrencySymbol(currency)}
                       </span>
                       <input
                         id="taxAmount"
@@ -819,7 +940,8 @@ export const ReceiptReviewPage: React.FC = () => {
                         step="0.01"
                         value={tax}
                         onChange={(e) => setTax(e.target.value)}
-                        className="w-full bg-surface-container-low focus:bg-surface-container-lowest pl-7 pr-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-table-numeric text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary"
+                        placeholder="0.00"
+                        className="w-full bg-surface-container-low focus:bg-surface-container-lowest pl-9 pr-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-table-numeric text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary"
                       />
                     </div>
                   </div>
@@ -832,8 +954,8 @@ export const ReceiptReviewPage: React.FC = () => {
                       Tip / Surcharge
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-on-surface-variant font-body-md">
-                        $
+                      <span className="absolute left-3 top-2.5 text-on-surface-variant font-body-md text-xs">
+                        {getCurrencySymbol(currency)}
                       </span>
                       <input
                         id="tipAmount"
@@ -841,7 +963,8 @@ export const ReceiptReviewPage: React.FC = () => {
                         step="0.01"
                         value={tip}
                         onChange={(e) => setTip(e.target.value)}
-                        className="w-full bg-surface-container-low focus:bg-surface-container-lowest pl-7 pr-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-table-numeric text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary"
+                        placeholder="0.00"
+                        className="w-full bg-surface-container-low focus:bg-surface-container-lowest pl-9 pr-3 py-2.5 min-h-[42px] rounded-xl text-body-md font-table-numeric text-on-surface focus:outline-none focus:ring-2 focus:ring-primary transition-all border border-transparent focus:border-primary"
                       />
                     </div>
                   </div>
@@ -853,12 +976,12 @@ export const ReceiptReviewPage: React.FC = () => {
                     >
                       <span>Calculated Total Paid *</span>
                       <span className="text-primary font-label-caps text-label-caps">
-                        Calculated Sum: ${calculatedSum.toFixed(2)}
+                        Calculated Sum: {getCurrencySymbol(currency)} {calculatedSum.toFixed(2)}
                       </span>
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-primary font-bold font-body-md">
-                        $
+                      <span className="absolute left-3 top-2.5 text-primary font-bold font-body-md text-xs">
+                        {getCurrencySymbol(currency)}
                       </span>
                       <input
                         id="totalAmount"
@@ -871,7 +994,8 @@ export const ReceiptReviewPage: React.FC = () => {
                             setValidationErrors((prev) => ({ ...prev, total: '' }))
                           }
                         }}
-                        className={`w-full bg-surface-container font-headline-sm text-headline-sm font-table-numeric text-primary pl-8 pr-10 py-2 min-h-[44px] rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all font-semibold border ${
+                        placeholder="0.00"
+                        className={`w-full bg-surface-container font-headline-sm text-headline-sm font-table-numeric text-primary pl-9 pr-10 py-2 min-h-[44px] rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all font-semibold border ${
                           validationErrors.total
                             ? 'border-error ring-1 ring-error'
                             : 'border-transparent focus:border-primary'
