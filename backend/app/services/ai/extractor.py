@@ -60,12 +60,13 @@ async def extract_receipt_data(
 
     # Step 1: Check if Ollama is accessible
     ollama_health = await ollama_client.check_health()
-    if ollama_health.get("connected"):
+    if ollama_health.get("connected") and ollama_health.get("model_present"):
+        active_model = ollama_health.get("active_model") or settings.OLLAMA_MODEL
         user_prompt = RECEIPT_EXTRACTION_USER_PROMPT.format(receipt_text=text[:4000])
         response_str = await ollama_client.generate_json(
             prompt=user_prompt,
             system_prompt=RECEIPT_EXTRACTION_SYSTEM_PROMPT,
-            model=settings.OLLAMA_MODEL,
+            model=active_model,
         )
 
         parsed_json = _clean_json_response(response_str) if response_str else None

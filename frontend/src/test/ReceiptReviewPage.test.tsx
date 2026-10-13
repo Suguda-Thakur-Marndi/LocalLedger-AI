@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -28,7 +29,7 @@ describe('ReceiptReviewPage', () => {
         tax: '1.00',
         total: '11.00',
         currency: 'USD',
-        category: 'Meals & Entertainment',
+        category: 'Software & Subscriptions',
         payment_method: 'Credit Card',
         notes: null,
       },
@@ -39,7 +40,7 @@ describe('ReceiptReviewPage', () => {
       ocr_text_preview: 'COFFEE CORNER\nTOTAL $11.00',
       warnings: [],
       ollama_used: true,
-      model_name: 'qwen2.5:3b',
+      model_name: 'llama3.2-vision:11b',
     })
 
     const queryClient = new QueryClient({
@@ -65,7 +66,7 @@ describe('ReceiptReviewPage', () => {
     expect(merchantInput.value).toBe('Coffee Corner Roasters')
 
     // Confirm button present
-    const confirmBtn = screen.getByRole('button', { name: /Confirm & Save Transaction/i })
-    expect(confirmBtn).toBeInTheDocument()
+    const confirmBtns = screen.getAllByRole('button', { name: /Save Transaction/i })
+    expect(confirmBtns.length).toBeGreaterThan(0)
   })
 })

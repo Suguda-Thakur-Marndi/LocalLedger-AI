@@ -85,7 +85,9 @@ async def test_extraction_with_malformed_ollama_fallback(monkeypatch):
     monkeypatch.setattr(ollama_client, "generate_json", mock_generate)
 
     sample_text = "Quick Stop Cafe\nTotal: $12.50\n"
-    extracted, _suggestions, _warnings, ollama_used, _model = await extract_receipt_data(sample_text)
+    extracted, _suggestions, _warnings, ollama_used, _model = await extract_receipt_data(
+        sample_text
+    )
 
     # Should fall back cleanly to heuristic rules
     assert ollama_used is False

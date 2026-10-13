@@ -1,15 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart3,
-  Download,
-  Calendar,
-  Filter,
-  PieChart as PieIcon,
-  TrendingUp,
-  FileSpreadsheet,
-} from 'lucide-react'
-import {
   BarChart,
   Bar,
   XAxis,
@@ -35,172 +26,209 @@ export const ReportsPage: React.FC = () => {
   })
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto px-space-sm sm:px-space-md lg:px-space-xl py-space-md sm:py-space-lg space-y-space-md sm:space-y-space-lg">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Financial Reports</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Aggregated analytics grouped strictly by currency to prevent inaccurate multi-currency sums.
+          <div className="flex items-center gap-space-xs text-on-surface-variant font-label-caps text-label-caps uppercase tracking-wider">
+            <span>Sovereign Financial Intelligence</span>
+            <span>•</span>
+            <span className="text-primary font-semibold">Strict Multi-Currency Isolation</span>
+          </div>
+          <h1 className="font-display text-2xl sm:text-display text-on-surface tracking-tight mt-1">
+            Financial Reports
+          </h1>
+          <p className="font-body-sm sm:font-body-md text-on-surface-variant mt-1">
+            Aggregated analytics computed exclusively on local database tables without cloud ingestion.
           </p>
         </div>
 
         <a
           href={exportUrl}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-xs transition-colors shrink-0"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-all shadow-xs self-start sm:self-auto active:scale-[0.98]"
         >
-          <Download className="h-4 w-4" />
+          <span className="material-symbols-outlined text-[18px]">download</span>
           <span>Export Filtered CSV</span>
         </a>
       </div>
 
-      {/* Date Range Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-          <Calendar className="h-4 w-4 text-slate-400" />
-          <span>Date Range:</span>
+      {/* Date Range Filter Bar with Natural Wrapping */}
+      <div className="bg-surface-container-lowest rounded-xl p-space-sm sm:p-space-md shadow-xs border border-outline-variant/30 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-on-surface">
+          <span className="material-symbols-outlined text-[18px] text-outline">calendar_today</span>
+          <span>Date Period:</span>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:border-brand-600"
+            className="bg-surface-container-low text-on-surface px-3 py-2 min-h-[42px] rounded-xl text-body-sm border border-transparent focus:border-primary focus:outline-none flex-1 sm:max-w-[180px]"
+            aria-label="Start Date"
           />
-          <span className="text-slate-400 text-xs">to</span>
+          <span className="text-outline text-xs text-center sm:text-left">to</span>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:border-brand-600"
+            className="bg-surface-container-low text-on-surface px-3 py-2 min-h-[42px] rounded-xl text-body-sm border border-transparent focus:border-primary focus:outline-none flex-1 sm:max-w-[180px]"
+            aria-label="End Date"
           />
         </div>
+
         {(startDate || endDate) && (
           <button
             onClick={() => {
               setStartDate('')
               setEndDate('')
             }}
-            className="text-xs text-brand-600 hover:underline font-medium"
+            className="text-xs text-primary font-medium hover:underline flex items-center justify-center sm:justify-start gap-1 py-1 min-h-[36px]"
           >
-            Clear Filters
+            <span className="material-symbols-outlined text-[14px]">close</span>
+            <span>Clear Dates</span>
           </button>
         )}
       </div>
 
-      {/* Grouped Currency Totals */}
-      {summary && summary.currency_totals.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Grouped Currency Totals (Stacked on phones, responsive grid on tablets/desktops) */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-md animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-surface-container-lowest rounded-xl p-space-md h-28 border border-outline-variant/30"
+            />
+          ))}
+        </div>
+      ) : summary && summary.currency_totals.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-md">
           {summary.currency_totals.map((c) => (
             <div
               key={c.currency}
-              className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between"
+              className="bg-surface-container-lowest rounded-xl p-space-md shadow-xs border border-outline-variant/30 flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between text-slate-500">
-                <span className="text-xs font-bold uppercase tracking-wider">
-                  Total Spending ({c.currency})
+              <div className="flex items-center justify-between text-on-surface-variant mb-2">
+                <span className="font-label-caps text-label-caps uppercase font-semibold">
+                  Total Spend ({c.currency})
                 </span>
-                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">
-                  {c.transaction_count} Transactions
-                </span>
+                <span className="material-symbols-outlined text-outline text-[18px]">payments</span>
               </div>
-              <div className="mt-3">
-                <div className="text-3xl font-extrabold text-slate-900">
+              <div className="mt-1">
+                <div className="font-headline-lg text-2xl sm:text-headline-lg font-table-numeric text-on-surface font-bold truncate">
                   {formatCurrency(c.total_amount, c.currency)}
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  Average: {formatCurrency(c.average_amount, c.currency)} / tx
+                <div className="font-body-sm text-[12px] text-on-surface-variant mt-1">
+                  Average {formatCurrency(c.average_amount, c.currency)} across {c.transaction_count} records
                 </div>
               </div>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {/* Category Breakdown Table & Bar Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Table */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900">Expenses by Category</h2>
-            <span className="text-xs text-slate-500">Ranked by total volume</span>
+      {/* Analytics Charts & Breakdowns */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-md lg:gap-space-lg items-start">
+        {/* Monthly Bar Chart (8-col on lg, full-width on mobile) */}
+        <div className="lg:col-span-8 bg-surface-container-lowest rounded-xl p-space-md sm:p-space-lg shadow-xs border border-outline-variant/30 flex flex-col gap-space-md">
+          <div>
+            <h2 className="font-headline-md text-base sm:text-headline-md text-on-surface font-semibold">
+              Monthly Expenditure Volume
+            </h2>
+            <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+              Aggregated monthly totals by calendar period
+            </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-semibold uppercase">
-                  <th className="py-2.5 px-4">Category</th>
-                  <th className="py-2.5 px-4 text-center">Tx Count</th>
-                  <th className="py-2.5 px-4 text-right">Total Amount</th>
-                  <th className="py-2.5 px-4 text-right">Share</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {!summary || summary.categories.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-xs text-slate-400">
-                      No expenses registered for the chosen period.
-                    </td>
-                  </tr>
-                ) : (
-                  summary.categories.map((cat, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
-                      <td className="py-2.5 px-4 font-semibold text-slate-800">{cat.category}</td>
-                      <td className="py-2.5 px-4 text-center text-slate-600 font-mono text-xs">
-                        {cat.transaction_count}
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-bold text-slate-900">
-                        {formatCurrency(cat.total_amount, cat.currency)}
-                      </td>
-                      <td className="py-2.5 px-4 text-right text-xs text-slate-500">
-                        {cat.percentage}%
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-        {/* Bar Chart */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
-          <div className="mb-4">
-            <h2 className="text-base font-bold text-slate-900">Category Volume Comparison</h2>
-            <p className="text-xs text-slate-500">Spending across top expense channels</p>
-          </div>
-          <div className="h-64 w-full">
-            {summary && summary.categories.length > 0 ? (
+          <div className="h-60 sm:h-72 w-full">
+            {summary && summary.monthly_trends.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={summary.categories.slice(0, 6)} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
+                <BarChart
+                  data={summary.monthly_trends}
+                  margin={{ top: 15, right: 10, left: -20, bottom: 0 }}
+                >
                   <XAxis
-                    dataKey="category"
-                    stroke="#94a3b8"
-                    fontSize={10}
-                    interval={0}
-                    angle={-20}
-                    textAnchor="end"
+                    dataKey="month"
+                    stroke="#6f7a71"
+                    fontSize={11}
                     tickLine={false}
+                    axisLine={{ stroke: '#bec9c0' }}
                   />
-                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+                  <YAxis
+                    stroke="#6f7a71"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `$${v}`}
+                  />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0f172a',
+                      backgroundColor: '#161d16',
+                      border: 'none',
                       borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '12px',
+                      color: '#ffffff',
+                      fontFamily: 'Inter',
+                      fontSize: '11px',
                     }}
                     formatter={(val: any, _name: any, item: any) => [
                       formatCurrency(val, item.payload.currency),
-                      'Total',
+                      'Total Spend',
                     ]}
                   />
-                  <Bar dataKey="total_amount" fill="#059669" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="total_amount" fill="#00603c" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-xs text-slate-400">
-                No expense categories to chart
+              <div className="flex items-center justify-center h-full text-xs text-on-surface-variant">
+                No monthly data points available for this period.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Category Breakdown (4-col on lg, full-width on mobile) */}
+        <div className="lg:col-span-4 bg-surface-container-lowest rounded-xl p-space-md sm:p-space-lg shadow-xs border border-outline-variant/30 flex flex-col gap-space-md">
+          <div>
+            <h2 className="font-headline-md text-base sm:text-headline-md text-on-surface font-semibold">
+              Category Distribution
+            </h2>
+            <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+              Proportional expense breakdown
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {summary && summary.categories.length > 0 ? (
+              summary.categories.map((cat, idx) => {
+                const colors = [
+                  'bg-primary',
+                  'bg-secondary',
+                  'bg-primary-container',
+                  'bg-tertiary-container',
+                  'bg-outline',
+                ]
+                return (
+                  <div key={cat.category} className="space-y-1">
+                    <div className="flex items-center justify-between font-body-sm text-xs sm:text-body-sm">
+                      <span className="font-medium text-on-surface truncate pr-2">
+                        {cat.category}
+                      </span>
+                      <span className="font-table-numeric text-on-surface font-semibold shrink-0">
+                        {formatCurrency(cat.total_amount, cat.currency)}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
+                      <div
+                        className={`h-full ${colors[idx % colors.length]} rounded-full`}
+                        style={{ width: `${Math.min(100, Math.max(4, cat.percentage))}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="text-xs text-on-surface-variant py-6 text-center">
+                No category records available.
               </div>
             )}
           </div>

@@ -1,113 +1,192 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  UploadCloud,
-  Receipt,
-  BarChart3,
-  Settings,
-  ShieldCheck,
-  HardDrive,
-  X,
-} from 'lucide-react'
-import { cn } from '../../lib/utils'
+import { X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../../lib/api'
 
 interface SidebarProps {
   mobileOpen?: boolean
   onCloseMobile?: () => void
+  onOpenHelp?: () => void
 }
 
 const navItems = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Upload & Process', path: '/upload', icon: UploadCloud },
-  { name: 'Transactions', path: '/transactions', icon: Receipt },
-  { name: 'Reports & Export', path: '/reports', icon: BarChart3 },
-  { name: 'Settings', path: '/settings', icon: Settings },
+  { name: 'Overview', path: '/', icon: 'dashboard' },
+  { name: 'Receipts', path: '/receipts', icon: 'receipt_long' },
+  { name: 'Upload Queue', path: '/upload', icon: 'upload_file' },
+  { name: 'Review', path: '/review', icon: 'rate_review' },
+  { name: 'Transactions', path: '/transactions', icon: 'table_chart' },
+  { name: 'Reports', path: '/reports', icon: 'analytics' },
 ]
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMobile }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMobile, onOpenHelp }) => {
+  const { data: health } = useQuery({
+    queryKey: ['system-health'],
+    queryFn: () => api.getHealth(),
+    refetchInterval: 30000,
+  })
+
+  const ollamaConnected = health?.ollama?.connected ?? false
+  const modelName = health?.ollama?.model_configured || 'Qwen2.5 / llama3.2'
+
   const content = (
-    <div className="flex flex-col h-full bg-white border-r border-slate-200 w-64 select-none">
-      {/* Brand Header */}
-      <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center text-white shadow-sm shadow-brand-500/20">
-            <ShieldCheck className="h-6 w-6" />
+    <div className="h-full w-full bg-surface-container-lowest flex flex-col justify-between border-r border-outline-variant/30 shadow-[0_1px_8px_rgba(32,40,32,0.04)] select-none">
+      <div className="flex flex-col">
+        {/* Brand Logo & Local Status */}
+        <div className="p-space-md pb-space-sm flex flex-col gap-space-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-space-xs">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary shadow-xs shrink-0">
+                <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+              </div>
+              <span className="font-headline-md text-headline-md text-on-surface tracking-tight font-bold hidden lg:inline">
+                LocalLedger AI
+              </span>
+            </div>
+            {onCloseMobile && (
+              <button
+                onClick={onCloseMobile}
+                className="md:hidden p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-container min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Close menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
-          <div>
-            <h1 className="font-bold text-base tracking-tight text-slate-900 leading-none">
-              LocalLedger
-            </h1>
-            <span className="text-xs font-semibold text-brand-600 tracking-wider uppercase">
-              Private AI
+
+          <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-low text-primary text-label-caps font-label-caps">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                ollamaConnected ? 'bg-primary animate-pulse' : 'bg-tertiary'
+              }`}
+            />
+            <span className="truncate">
+              {ollamaConnected ? 'Local processing active' : 'Ollama Offline (OCR Mode)'}
             </span>
           </div>
         </div>
-        {onCloseMobile && (
-          <button
-            onClick={onCloseMobile}
-            className="md:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
-      </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-        <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-          Menu
+        {/* Section Header */}
+        <div className="px-space-md py-space-2xs hidden lg:block">
+          <span className="text-label-caps font-label-caps text-on-surface-variant uppercase tracking-wider">
+            Workspace
+          </span>
         </div>
-        {navItems.map((item) => {
-          const Icon = item.icon
-          return (
+
+        {/* Navigation Items */}
+        <nav className="px-2 lg:px-space-sm flex flex-col gap-1">
+          {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === '/'}
               onClick={onCloseMobile}
+              title={item.name}
               className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                `flex items-center justify-center lg:justify-start gap-space-xs px-2.5 lg:px-3 py-2.5 transition-all font-body-md text-body-md rounded-lg min-h-[44px] ${
                   isActive
-                    ? 'bg-brand-50 text-brand-800 font-semibold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                )
+                    ? 'bg-primary text-on-primary font-medium shadow-[0_1px_3px_rgba(32,40,32,0.05)]'
+                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+                }`
               }
             >
-              <Icon className="h-4.5 w-4.5 shrink-0" />
-              <span>{item.name}</span>
+              <span className="material-symbols-outlined text-[20px] shrink-0">{item.icon}</span>
+              <span className="hidden lg:inline">{item.name}</span>
             </NavLink>
-          )
-        })}
-      </nav>
+          ))}
+        </nav>
+      </div>
 
-      {/* Local-First Privacy Badge */}
-      <div className="p-4 m-3 rounded-xl bg-slate-50 border border-slate-100">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
-          <HardDrive className="h-4 w-4 text-brand-600" />
-          <span>Local-Only Storage</span>
+      {/* Footer Area: Model status, Settings, User profile */}
+      <div className="flex flex-col gap-space-xs p-2 lg:p-space-sm">
+        {/* Model Indicator (Desktop Only) */}
+        <div className="mx-2 p-2 rounded-lg bg-surface-container-low hidden lg:flex items-center justify-between">
+          <div className="flex items-center gap-1.5 truncate pr-1">
+            <span className="material-symbols-outlined text-primary text-[16px] shrink-0">memory</span>
+            <span className="font-label-caps text-label-caps text-on-surface-variant truncate">
+              {modelName}
+            </span>
+          </div>
+          <span
+            className={`font-label-caps text-label-caps shrink-0 font-semibold ${
+              ollamaConnected ? 'text-primary' : 'text-tertiary-container'
+            }`}
+          >
+            {ollamaConnected ? 'Ready' : 'OCR Fallback'}
+          </span>
         </div>
-        <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-          Zero cloud LLMs or telemetry. Documents stay on your machine.
-        </p>
+
+        {/* Secondary Nav: Settings & Help */}
+        <nav className="flex flex-col gap-0.5">
+          <NavLink
+            to="/settings"
+            onClick={onCloseMobile}
+            title="Settings"
+            className={({ isActive }) =>
+              `flex items-center justify-center lg:justify-start gap-space-xs px-2.5 lg:px-3 py-2 rounded-lg transition-all font-body-sm text-body-sm min-h-[44px] ${
+                isActive
+                  ? 'bg-primary text-on-primary font-medium'
+                  : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-[20px] shrink-0">settings</span>
+            <span className="hidden lg:inline">Settings</span>
+          </NavLink>
+          <button
+            onClick={() => {
+              if (onOpenHelp) onOpenHelp()
+              if (onCloseMobile) onCloseMobile()
+            }}
+            type="button"
+            title="Help & Docs"
+            className="flex items-center justify-center lg:justify-start gap-space-xs px-2.5 lg:px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-sm text-body-sm text-left w-full min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-[20px] shrink-0">help_outline</span>
+            <span className="hidden lg:inline">Help &amp; Docs</span>
+          </button>
+        </nav>
+
+        {/* User Profile Pill */}
+        <div className="pt-space-xs flex items-center justify-center lg:justify-between px-2 py-1.5 rounded-lg hover:bg-surface-container-high transition-colors">
+          <div className="flex items-center gap-space-xs">
+            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs uppercase shrink-0">
+              AR
+            </div>
+            <div className="hidden lg:flex flex-col min-w-0">
+              <span className="font-body-sm text-body-sm font-semibold text-on-surface leading-tight truncate">
+                Alex Rivera
+              </span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant leading-tight truncate">
+                Freelance Pro Plan
+              </span>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-on-surface-variant text-[18px] cursor-pointer hover:text-on-surface hidden lg:inline">
+            more_vert
+          </span>
+        </div>
       </div>
     </div>
   )
 
   return (
     <>
-      {/* Desktop Persistent Sidebar */}
-      <aside className="hidden md:block shrink-0">{content}</aside>
+      {/* Desktop Persistent Sidebar (Tablet: 64px rail, Desktop: 240px full) */}
+      <aside className="fixed left-0 top-0 h-full md:w-16 lg:w-60 z-30 hidden md:block transition-all">
+        {content}
+      </aside>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer Overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-inverse-surface/40 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
           />
-          <div className="relative z-10">{content}</div>
+          <div className="relative z-10 w-64 h-full shadow-2xl animate-in slide-in-from-left duration-200">
+            {content}
+          </div>
         </div>
       )}
     </>

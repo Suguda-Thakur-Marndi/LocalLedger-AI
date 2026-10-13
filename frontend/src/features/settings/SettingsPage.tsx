@@ -1,19 +1,5 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  Settings,
-  Sparkles,
-  Cpu,
-  HardDrive,
-  ShieldCheck,
-  Download,
-  Trash2,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle2,
-  X,
-  FileCode,
-} from 'lucide-react'
 import { api } from '../../lib/api'
 import { formatBytes } from '../../lib/utils'
 
@@ -55,7 +41,7 @@ export const SettingsPage: React.FC = () => {
       setDeleteModalOpen(false)
       setConfirmInput('')
       setDeleteError(null)
-      alert('All local data, database tables, and receipts have been successfully erased.')
+      alert('All local data, database records, and receipt files have been permanently erased.')
     },
     onError: (err: any) => {
       setDeleteError(err.message || 'Failed to erase data.')
@@ -72,246 +58,274 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto px-space-sm sm:px-space-md lg:px-space-xl py-space-md sm:py-space-lg space-y-space-md sm:space-y-space-lg">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">System & Privacy Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Inspect local engine states, manage privacy parameters, export backups, or wipe local data.
+        <div className="flex items-center gap-space-xs text-on-surface-variant font-label-caps text-label-caps uppercase tracking-wider">
+          <span>Host Machine Configuration</span>
+          <span>•</span>
+          <span className="text-primary font-semibold">Zero Telemetry</span>
+        </div>
+        <h1 className="font-display text-2xl sm:text-display text-on-surface tracking-tight mt-1">
+          System &amp; Settings
+        </h1>
+        <p className="font-body-sm sm:font-body-md text-on-surface-variant mt-1">
+          Inspect local neural runtime, verify storage parameters, export backups, or manage vault security.
         </p>
       </div>
 
-      {/* Ollama Engine Panel */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Vertical Settings Sections */}
+      {isLoading ? (
+        <div className="space-y-space-md sm:space-y-space-lg animate-pulse">
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 h-44" />
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 h-44" />
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 h-44" />
+        </div>
+      ) : (
+        <div className="space-y-space-md sm:space-y-space-lg">
+          {/* SECTION 1: Ollama & OCR Engine Status */}
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-xs p-space-md sm:p-space-lg space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-surface-container-low text-primary flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">neurology</span>
+              </div>
+              <div>
+                <h2 className="font-headline-sm text-sm sm:text-headline-sm text-on-surface font-semibold">
+                  Local AI Inference Engine (Ollama)
+                </h2>
+                <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+                  Host-loopback LLM for document semantic parsing &amp; tax classification.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => checkMutation.mutate()}
+              disabled={checkMutation.isPending}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 min-h-[44px] bg-surface-container-lowest hover:bg-surface-container-low text-on-surface border border-outline-variant/40 rounded-xl font-body-sm text-xs sm:text-body-sm font-medium transition-all shadow-xs self-start sm:self-auto disabled:opacity-50"
+            >
+              <span
+                className={`material-symbols-outlined text-[16px] ${
+                  checkMutation.isPending ? 'animate-spin' : ''
+                }`}
+              >
+                refresh
+              </span>
+              <span>{checkMutation.isPending ? 'Testing...' : 'Test Connection'}</span>
+            </button>
+          </div>
+
+          {checkMessage && (
+            <div className="p-3 bg-surface-container-low rounded-xl text-xs sm:text-body-sm text-on-surface font-medium border border-primary/20">
+              {checkMessage}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-sm pt-1 text-body-sm">
+            <div className="p-3 rounded-xl bg-surface-container-low/60 flex items-center justify-between">
+              <span className="text-on-surface-variant text-xs sm:text-body-sm">Daemon Status</span>
+              <span
+                className={`font-semibold inline-flex items-center gap-1 font-label-caps text-label-caps px-2 py-0.5 rounded ${
+                  status?.ollama_connected
+                    ? 'bg-secondary-container text-on-secondary-container'
+                    : 'bg-tertiary-fixed text-on-tertiary-fixed-variant'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    status?.ollama_connected ? 'bg-secondary' : 'bg-tertiary'
+                  }`}
+                />
+                {status?.ollama_connected ? 'Online (Ready)' : 'Offline (Fallback active)'}
+              </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-surface-container-low/60 flex items-center justify-between">
+              <span className="text-on-surface-variant text-xs sm:text-body-sm">Configured Model</span>
+              <span className="font-mono text-xs font-semibold text-on-surface">
+                {status?.ollama_model || 'llama3.2-vision:11b'}
+              </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-surface-container-low/60 flex items-center justify-between sm:col-span-2">
+              <span className="text-on-surface-variant text-xs sm:text-body-sm">OCR Pipeline</span>
+              <span className="font-semibold text-xs text-primary flex items-center gap-1 font-label-caps text-label-caps">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                PyMuPDF + Local Tesseract
+              </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-surface-container-low/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:col-span-2">
+              <span className="text-on-surface-variant text-xs sm:text-body-sm">Available Models</span>
+              <span className="font-mono text-xs text-on-surface break-all sm:break-normal text-right sm:text-left">
+                {status?.ollama_available_models && status.ollama_available_models.length > 0
+                  ? status.ollama_available_models.join(', ')
+                  : 'None detected via 127.0.0.1:11434'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: Local Storage & Vault Panel */}
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-xs p-space-md sm:p-space-lg space-y-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Sparkles className="h-5 w-5" />
+            <div className="w-10 h-10 rounded-xl bg-surface-container-low text-primary flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[24px]">folder_special</span>
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">Local AI Inference (Ollama)</h2>
-              <p className="text-xs text-slate-500">
-                Self-hosted open-weight language model for semantic interpretation.
+              <h2 className="font-headline-sm text-sm sm:text-headline-sm text-on-surface font-semibold">
+                Host File Vault &amp; Database
+              </h2>
+              <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+                Physical filesystem paths where your receipts and SQLite tables reside.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2 text-body-sm">
+            <div className="p-3 rounded-xl bg-surface-container-low/60 flex flex-col gap-1">
+              <span className="text-on-surface-variant font-medium text-xs">SQLite Database File</span>
+              <span className="font-mono text-[11px] text-on-surface bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/20 break-all select-all">
+                {status?.database_path || 'data/db/localledger.db'}
+              </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-surface-container-low/60 flex flex-col gap-1">
+              <span className="text-on-surface-variant font-medium text-xs">Document Vault Directory</span>
+              <span className="font-mono text-[11px] text-on-surface bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/20 break-all select-all">
+                {status?.storage_directory || 'data/documents'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-space-sm pt-1">
+              <div className="p-3 rounded-xl bg-surface-container-low text-center">
+                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase block">
+                  Total Files
+                </span>
+                <span className="font-headline-sm font-table-numeric font-bold text-on-surface">
+                  {status?.total_documents ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-container-low text-center">
+                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase block">
+                  Confirmed Records
+                </span>
+                <span className="font-headline-sm font-table-numeric font-bold text-on-surface">
+                  {status?.total_transactions ?? 0}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-container-low text-center col-span-2 sm:col-span-1">
+                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase block">
+                  Disk Footprint
+                </span>
+                <span className="font-headline-sm font-table-numeric font-bold text-on-surface">
+                  {formatBytes(status?.storage_size_bytes ?? 0)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: Backup & Export */}
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-xs p-space-md sm:p-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-surface-container-low text-primary flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[24px]">archive</span>
+            </div>
+            <div>
+              <h2 className="font-headline-sm text-sm sm:text-headline-sm text-on-surface font-semibold">
+                Export Vault Backup (ZIP Archive)
+              </h2>
+              <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+                Download your entire SQLite database and raw document assets as an offline archive.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={api.getBackupExportUrl()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-all shadow-xs shrink-0 self-start sm:self-auto active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-[18px]">download</span>
+            <span>Download Backup</span>
+          </a>
+        </div>
+
+        {/* SECTION 4: Sovereign Wipe Zone (Danger Section) */}
+        <div className="bg-surface-container-lowest rounded-xl border border-error/30 shadow-xs p-space-md sm:p-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[24px]">delete_forever</span>
+            </div>
+            <div>
+              <h2 className="font-headline-sm text-sm sm:text-headline-sm text-error font-semibold">
+                Purge Local Ledger Data
+              </h2>
+              <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+                Permanently erase all ingested documents, OCR outputs, and ledger database rows.
               </p>
             </div>
           </div>
 
           <button
-            onClick={() => checkMutation.mutate()}
-            disabled={checkMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${checkMutation.isPending ? 'animate-spin' : ''}`} />
-            <span>Test Connection</span>
-          </button>
-        </div>
-
-        {checkMessage && (
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-mono">
-            {checkMessage}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-xs">
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 uppercase tracking-wider font-semibold block text-[10px]">
-              Connection Status
-            </span>
-            <span
-              className={`font-bold mt-1 inline-block ${
-                status?.ollama_connected ? 'text-emerald-700' : 'text-amber-700'
-              }`}
-            >
-              {status?.ollama_connected ? 'Connected (Loopback)' : 'Offline (OCR Fallback Active)'}
-            </span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 uppercase tracking-wider font-semibold block text-[10px]">
-              Configured Model
-            </span>
-            <span className="font-bold text-slate-800 mt-1 inline-block font-mono">
-              {status?.ollama_model || 'qwen2.5:3b'}
-            </span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 uppercase tracking-wider font-semibold block text-[10px]">
-              Fallback Mechanism
-            </span>
-            <span className="font-bold text-slate-800 mt-1 inline-block">
-              Rule-Based OCR Heuristics
-            </span>
-          </div>
-        </div>
-
-        <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs text-slate-600">
-          <span className="font-semibold text-slate-800 block mb-1">How to enable local Ollama AI:</span>
-          Install Ollama from{' '}
-          <a
-            href="https://ollama.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-brand-600 underline"
-          >
-            ollama.com
-          </a>
-          , then run{' '}
-          <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-[11px] text-slate-900">
-            ollama run {status?.ollama_model || 'qwen2.5:3b'}
-          </code>{' '}
-          in your terminal. LocalLedger automatically detects and routes inferences through loopback.
-        </div>
-      </div>
-
-      {/* Local OCR & Storage Details */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-            <HardDrive className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900">OCR & Local Storage Engine</h2>
-            <p className="text-xs text-slate-500">
-              Filesystem and SQLite parameters on your local hard drive.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs">
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 uppercase tracking-wider font-semibold block text-[10px]">
-              OCR Engine
-            </span>
-            <span className="font-bold text-slate-800 mt-1 inline-block">
-              {status?.ocr_engine_type || 'PyMuPDF Native Text'}
-            </span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 uppercase tracking-wider font-semibold block text-[10px]">
-              Storage Directory
-            </span>
-            <span className="font-bold text-slate-800 mt-1 inline-block font-mono truncate" title={status?.storage_directory}>
-              {status?.storage_directory || 'data/uploads'}
-            </span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 uppercase tracking-wider font-semibold block text-[10px]">
-              Database Location
-            </span>
-            <span className="font-bold text-slate-800 mt-1 inline-block font-mono truncate" title={status?.database_path}>
-              {status?.database_path || 'data/db/localledger.db'}
-            </span>
-          </div>
-
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-slate-400 uppercase tracking-wider font-semibold block text-[10px]">
-              Disk Usage
-            </span>
-            <span className="font-bold text-slate-800 mt-1 inline-block">
-              {formatBytes(status?.storage_size_bytes || 0)} ({status?.total_documents || 0} documents)
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Privacy Architecture Manifesto */}
-      <div className="bg-brand-50/50 rounded-xl border border-brand-200/80 p-6 space-y-3">
-        <div className="flex items-center gap-2.5 text-brand-900 font-bold text-sm">
-          <ShieldCheck className="h-5 w-5 text-brand-600" />
-          <span>Local-First Privacy Architecture</span>
-        </div>
-        <p className="text-xs text-brand-950/80 leading-relaxed">
-          LocalLedger AI was engineered from the ground up under the principle of complete sovereign
-          data custody. Document files never leave your computer. We do not use OpenAI, Anthropic, or
-          cloud OCR endpoints. All document hashes, financial records, and embeddings reside exclusively
-          within your SQLite database.
-        </p>
-      </div>
-
-      {/* Backup and Data Maintenance */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-4">
-        <h2 className="text-base font-bold text-slate-900">Data Maintenance & Export</h2>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
-          <div>
-            <h3 className="text-xs font-semibold text-slate-800">Export Complete JSON Ledger</h3>
-            <p className="text-xs text-slate-500">
-              Download all transaction records and document metadata in portable JSON format.
-            </p>
-          </div>
-          <a
-            href={api.getBackupExportUrl()}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors shrink-0"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export Backup</span>
-          </a>
-        </div>
-
-        <div className="border-t border-slate-100 pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-xs font-semibold text-red-600">Delete All Local Financial Data</h3>
-            <p className="text-xs text-slate-500">
-              Permanently delete all uploaded receipts, SQLite transaction records, and database rows.
-            </p>
-          </div>
-          <button
             onClick={() => {
               setDeleteModalOpen(true)
-              setDeleteError(null)
               setConfirmInput('')
+              setDeleteError(null)
             }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold rounded-lg transition-colors shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-error-container hover:bg-error hover:text-on-error text-on-error-container rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-colors shrink-0 self-start sm:self-auto"
           >
-            <Trash2 className="h-4 w-4" />
+            <span className="material-symbols-outlined text-[18px]">delete</span>
             <span>Wipe All Data</span>
           </button>
         </div>
       </div>
+      )}
 
-      {/* Wipe Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 text-center">
-            <div className="h-12 w-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="h-6 w-6" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-inverse-surface/40 backdrop-blur-xs">
+          <div className="bg-surface-container-lowest max-w-md w-full rounded-2xl shadow-lg border border-outline-variant/40 p-space-md sm:p-space-lg space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-2 text-error">
+              <span className="material-symbols-outlined text-[28px]">warning</span>
+              <h3 className="font-headline-sm text-headline-sm font-semibold">
+                Permanent Data Erase
+              </h3>
             </div>
-            <h3 className="font-bold text-base text-slate-900">Confirm Irreversible Data Deletion</h3>
-            <p className="text-xs text-slate-500 mt-2 mb-4 leading-relaxed">
-              This will permanently delete all uploaded files and empty your SQLite ledger. To proceed,
-              type <span className="font-mono font-bold text-red-600">DELETE LOCAL DATA</span> below:
+
+            <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant leading-relaxed">
+              This action will completely wipe your local SQLite database and all uploaded receipt files. To proceed, please type <strong className="text-on-surface font-mono">DELETE LOCAL DATA</strong> below:
             </p>
 
-            <form onSubmit={handleDeleteSubmit} className="space-y-4">
+            <form onSubmit={handleDeleteSubmit} className="space-y-3">
               <input
                 type="text"
-                placeholder="DELETE LOCAL DATA"
                 value={confirmInput}
                 onChange={(e) => setConfirmInput(e.target.value)}
-                className="w-full px-3 py-2 text-xs font-mono text-center border border-slate-300 rounded-lg focus:border-red-600"
+                placeholder="DELETE LOCAL DATA"
+                className="w-full bg-surface-container-low px-3 py-2.5 min-h-[44px] rounded-xl font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-error"
+                autoFocus
               />
 
-              {deleteError && <p className="text-xs text-red-600">{deleteError}</p>}
+              {deleteError && (
+                <p className="text-xs text-error font-medium">{deleteError}</p>
+              )}
 
-              <div className="flex items-center justify-center gap-3 pt-2">
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setDeleteModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-100"
+                  className="px-4 py-2.5 min-h-[42px] rounded-xl hover:bg-surface-container text-on-surface-variant font-medium text-xs sm:text-body-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={deleteMutation.isPending || confirmInput.trim() !== 'DELETE LOCAL DATA'}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-xs font-semibold rounded-lg shadow-xs"
+                  disabled={deleteMutation.isPending || confirmInput !== 'DELETE LOCAL DATA'}
+                  className="px-5 py-2.5 min-h-[42px] bg-error hover:bg-error/90 disabled:opacity-40 text-on-error rounded-xl font-medium text-xs sm:text-body-sm transition-colors"
                 >
-                  {deleteMutation.isPending ? 'Erasing...' : 'Erase Everything'}
+                  {deleteMutation.isPending ? 'Erasing...' : 'Confirm Purge'}
                 </button>
               </div>
             </form>

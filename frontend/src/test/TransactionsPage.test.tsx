@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -16,7 +17,7 @@ vi.mock('../lib/api', () => ({
 
 describe('TransactionsPage', () => {
   it('renders transactions table with actions and search', async () => {
-    vi.mocked(api.getTransactions).mockResolvedValueOnce({
+    vi.mocked(api.getTransactions).mockResolvedValue({
       items: [
         {
           id: 'tx-88',
@@ -27,7 +28,7 @@ describe('TransactionsPage', () => {
           tax: '4.50',
           total: '49.50',
           currency: 'USD',
-          category: 'Office Supplies',
+          category: 'Office Supplies & Stationery',
           payment_method: 'Debit Card',
           notes: 'Printer ink',
           original_filename: 'receipt.pdf',
@@ -55,15 +56,16 @@ describe('TransactionsPage', () => {
       </QueryClientProvider>
     )
 
-    expect(await screen.findByText('Office Depot')).toBeInTheDocument()
-    expect(screen.getAllByText('Office Supplies').length).toBeGreaterThan(0)
-    expect(screen.getByText('$49.50')).toBeInTheDocument()
+    const officeDepotItems = await screen.findAllByText('Office Depot')
+    expect(officeDepotItems.length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Office Supplies & Stationery').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$49.50').length).toBeGreaterThan(0)
 
-    // Test delete modal trigger
-    const deleteBtn = screen.getByTitle('Delete transaction')
-    fireEvent.click(deleteBtn)
+    // Test delete modal trigger from either desktop table or mobile card
+    const deleteBtns = screen.getAllByTitle('Delete Record')
+    fireEvent.click(deleteBtns[0])
 
-    expect(await screen.findByText(/Delete Transaction\?/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Confirm Delete/i })).toBeInTheDocument()
+    expect(await screen.findByText(/Confirm Record Deletion/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Delete Transaction/i })).toBeInTheDocument()
   })
 })

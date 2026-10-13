@@ -52,12 +52,14 @@ confirm_payload = {
     "currency": extracted["currency"],
     "category": "Office Supplies",
     "payment_method": extracted["payment_method"],
-    "notes": "Coworking office monthly membership"
+    "notes": "Coworking office monthly membership",
 }
 confirm_res = client.post("/receipts/confirm", json=confirm_payload)
 assert confirm_res.status_code == 200, f"Confirm failed: {confirm_res.text}"
 tx = confirm_res.json()
-print(f"[OK] Confirmed Transaction: ID={tx['id']}, Merchant={tx['merchant']}, Total={tx['total']} {tx['currency']}")
+print(
+    f"[OK] Confirmed Transaction: ID={tx['id']}, Merchant={tx['merchant']}, Total={tx['total']} {tx['currency']}"
+)
 
 # 5. Dashboard Summary
 dash_res = client.get("/reports/dashboard")

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -8,11 +9,33 @@ import { api } from '../lib/api'
 vi.mock('../lib/api', () => ({
   api: {
     getDashboardSummary: vi.fn(),
+    getSystemStatus: vi.fn().mockResolvedValue({
+      app_env: 'development',
+      ollama_connected: true,
+      ollama_model: 'llama3.2-vision:11b',
+      ollama_available_models: ['llama3.2-vision:11b'],
+      ocr_engine_available: true,
+      ocr_engine_type: 'pymupdf',
+      storage_directory: 'data/documents',
+      database_path: 'data/db/localledger.db',
+      total_documents: 2,
+      total_transactions: 2,
+      storage_size_bytes: 2048,
+      max_upload_size_mb: 25,
+      max_pdf_pages: 10,
+    }),
+    getTransactions: vi.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 5,
+      total_pages: 1,
+    }),
   },
 }))
 
 describe('DashboardPage', () => {
-  it('renders empty state when no transactions exist', async () => {
+  it('renders greeting, status banner, and metric cards when empty', async () => {
     vi.mocked(api.getDashboardSummary).mockResolvedValueOnce({
       currency_totals: [],
       total_transactions: 0,
@@ -34,8 +57,10 @@ describe('DashboardPage', () => {
       </QueryClientProvider>
     )
 
-    expect(await screen.findByText(/No Transactions Recorded Yet/i)).toBeInTheDocument()
-    expect(screen.getByText(/Upload Your First Document/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Good morning, Alex/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Total Expenses/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Receipts Processed/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/No recent transactions recorded yet/i).length).toBeGreaterThan(0)
   })
 
   it('renders KPI metrics and recent transactions when data exists', async () => {
@@ -101,8 +126,10 @@ describe('DashboardPage', () => {
       </QueryClientProvider>
     )
 
-    expect(await screen.findByText('Acme Cafe')).toBeInTheDocument()
-    expect(screen.getByText('Meals & Entertainment')).toBeInTheDocument()
-    expect(screen.getByText(/Total Spend \(USD\)/i)).toBeInTheDocument()
+    const acmeElements = await screen.findAllByText('Acme Cafe')
+    expect(acmeElements.length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Meals & Entertainment').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Total Expenses/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$250.00').length).toBeGreaterThan(0)
   })
 })

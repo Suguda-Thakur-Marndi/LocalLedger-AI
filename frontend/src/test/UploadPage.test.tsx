@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { UploadPage } from '../features/receipts/UploadPage'
@@ -18,8 +19,8 @@ describe('UploadPage', () => {
       </MemoryRouter>
     )
 
-    expect(screen.getByText(/Click to browse or drag and drop receipts/i)).toBeInTheDocument()
-    expect(screen.getByText(/Supports PDF, PNG, JPEG, and WebP/i)).toBeInTheDocument()
+    expect(screen.getByText(/Drop invoices or receipts here/i)).toBeInTheDocument()
+    expect(screen.getByText(/PDF documents, PNG, JPEG, or WebP/i)).toBeInTheDocument()
   })
 
   it('rejects unsupported file formats gracefully in the queue', async () => {
@@ -37,7 +38,7 @@ describe('UploadPage', () => {
     expect(await screen.findByText(/Unsupported format/i)).toBeInTheDocument()
   })
 
-  it('uploads valid PDF and shows ready for review badge', async () => {
+  it('uploads valid PDF and shows ready for review button', async () => {
     vi.mocked(api.uploadDocument).mockResolvedValueOnce({
       document_id: 'doc-123',
       original_filename: 'receipt.pdf',
@@ -59,7 +60,6 @@ describe('UploadPage', () => {
 
     fireEvent.change(input, { target: { files: [file] } })
 
-    expect(await screen.findByText(/Ready for Review/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Review/i })).toBeInTheDocument()
+    expect(await screen.findByText(/Open Review Workspace/i)).toBeInTheDocument()
   })
 })

@@ -46,13 +46,15 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
     invoice_num = None
     inv_conf = 0.3
     inv_match = re.search(
-        r"(?:invoice|inv|receipt|bill|order|ref|ticket)[#:\s.-]+([A-Z0-9_-]{3,25})",
+        r"(?:invoice\s+(?:number|num|no\.?|#)|receipt\s+(?:number|num|no\.?|#)|invoice|inv|receipt|bill|order|ref|ticket)[#:\s.-]+([A-Z0-9_-]{3,25})",
         text,
         re.IGNORECASE,
     )
     if inv_match:
-        invoice_num = inv_match.group(1).strip()
-        inv_conf = 0.7
+        extracted_num = inv_match.group(1).strip()
+        if extracted_num.lower() not in {"number", "num", "no"}:
+            invoice_num = extracted_num
+            inv_conf = 0.7
 
     # 3. Date
     tx_date = parse_date(text)

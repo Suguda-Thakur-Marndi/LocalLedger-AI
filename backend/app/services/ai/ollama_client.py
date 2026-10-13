@@ -10,7 +10,10 @@ class OllamaClient:
     def __init__(self):
         self.base_url = settings.OLLAMA_BASE_URL
         self.timeout = settings.OLLAMA_TIMEOUT_SECONDS
-        self.default_model = settings.OLLAMA_MODEL
+
+    @property
+    def default_model(self) -> str:
+        return settings.OLLAMA_MODEL
 
     async def check_health(self) -> dict[str, Any]:
         """
@@ -22,13 +25,19 @@ class OllamaClient:
                 if res.status_code == 200:
                     data = res.json()
                     models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+                    exact_present = any(
+                        self.default_model in m or m.startswith(self.default_model) for m in models
+                    )
+                    active_model = (
+                        self.default_model
+                        if exact_present
+                        else (models[0] if models else self.default_model)
+                    )
                     return {
                         "connected": True,
                         "models": models,
-                        "model_present": any(
-                            self.default_model in m or m.startswith(self.default_model)
-                            for m in models
-                        ),
+                        "model_present": bool(models),
+                        "active_model": active_model,
                     }
         except Exception as e:
             logger.debug("Ollama health check failed: %s", str(e))
@@ -37,6 +46,7 @@ class OllamaClient:
             "connected": False,
             "models": [],
             "model_present": False,
+            "active_model": None,
         }
 
     async def generate_json(

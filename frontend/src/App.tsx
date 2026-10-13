@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppLayout } from './components/layout/AppLayout'
 import { DashboardPage } from './features/dashboard/DashboardPage'
+import { ReceiptsPage } from './features/receipts/ReceiptsPage'
 import { UploadPage } from './features/receipts/UploadPage'
 import { ReceiptReviewPage } from './features/receipts/ReceiptReviewPage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
@@ -25,7 +26,9 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
+            <Route path="receipts" element={<ReceiptsPage />} />
             <Route path="upload" element={<UploadPage />} />
+            <Route path="review" element={<ReceiptReviewPage />} />
             <Route path="review/:documentId" element={<ReceiptReviewPage />} />
             <Route path="transactions" element={<TransactionsPage />} />
             <Route path="reports" element={<ReportsPage />} />
