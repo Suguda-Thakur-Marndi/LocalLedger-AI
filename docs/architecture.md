@@ -62,7 +62,7 @@ graph TD
 - **SHA-256 Deduplication**: Every file content hash is calculated upon upload. If a file has already been recorded, the user is flagged with an advisory duplicate banner while retaining the option to proceed if intentional.
 
 ### 2. Dual-Engine Document Extraction
-1. **PDF Embedded Layer**: First attempts lossless digital text extraction using PyMuPDF (`fitz`).
+1. **PDF Embedded Layer**: First attempts lossless digital text extraction using PyMuPDF (`pymupdf`).
 2. **Local Page Rendering & OCR**: If a page is scanned or image-based, PyMuPDF renders the page to a high-DPI pixmap locally, which is then processed by Tesseract OCR via `pytesseract`.
 3. **Graceful Degradation**: If Tesseract is not installed on the system, the application catches `TesseractNotFoundError` gracefully without crashing, falling back to embedded PDF text or notifying the user in Settings.
 

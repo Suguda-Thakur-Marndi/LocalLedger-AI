@@ -201,7 +201,7 @@ flowchart TD
 - **Schema Migrations**: Alembic (`1.14.0+`)
 - **Data Validation & Settings**: Pydantic v2 (`2.9.0+`) & Pydantic Settings (`2.6.0+`)
 - **HTTP Client**: HTTPX (`0.27.2+`)
-- **Document Processing**: PyMuPDF (`fitz 1.24.11+`), Pillow (`10.4.0+`), pytesseract (`0.3.13+`), python-multipart
+- **Document Processing**: PyMuPDF (`pymupdf 1.24.11+`), Pillow (`10.4.0+`), pytesseract (`0.3.13+`), python-multipart
 - **Code Quality & Testing**: pytest (`8.3.3+`), pytest-asyncio (`0.24.0+`), Ruff (`0.7.0+`)
 
 ---
@@ -321,9 +321,19 @@ LocalLedger AI/
    ```
 
 5. **Start Services**:
-   - **Terminal 1 (Backend)**:
+   - **Terminal 1 (Backend - via PowerShell script)**:
      ```powershell
-     backend\.venv\Scripts\uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+     cd backend
+     .\scripts\start_backend.ps1
+     ```
+     *Alternatively, direct Python command:*
+     ```powershell
+     cd backend
+     .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+     ```
+     *Or from the repository root:*
+     ```powershell
+     .\backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
      ```
    - **Terminal 2 (Frontend)**:
      ```powershell

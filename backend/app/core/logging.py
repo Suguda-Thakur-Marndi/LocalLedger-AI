@@ -17,6 +17,7 @@ def setup_logging():
     # Silence noisy third-party loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("pymupdf").setLevel(logging.WARNING)
     logging.getLogger("fitz").setLevel(logging.WARNING)
     logging.getLogger("PIL").setLevel(logging.WARNING)
 

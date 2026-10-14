@@ -1,6 +1,6 @@
 import io
 
-import fitz  # PyMuPDF
+import pymupdf
 from PIL import Image
 
 from app.core.config import settings
@@ -17,7 +17,7 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> tuple[str, int]:
     3. If a page contains insufficient embedded text (< 20 chars), render page
        to pixmap locally and OCR with Tesseract if available.
     """
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     page_count = len(doc)
 
     if page_count > settings.MAX_PDF_PAGES:

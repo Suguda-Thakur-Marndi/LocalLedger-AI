@@ -7,7 +7,7 @@ backend_root = Path(__file__).resolve().parent.parent
 if str(backend_root) not in sys.path:
     sys.path.insert(0, str(backend_root))
 
-import fitz  # PyMuPDF
+import pymupdf
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
@@ -72,7 +72,7 @@ def client(db_session):
 @pytest.fixture
 def sample_pdf_bytes():
     """Create a synthetic PDF document in-memory using PyMuPDF."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
     text = (
         "ACME COFFEE ROASTERS\n"

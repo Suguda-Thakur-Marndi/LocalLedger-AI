@@ -1,4 +1,4 @@
-import fitz
+import pymupdf
 import pytest
 
 from app.core.config import settings
@@ -17,7 +17,7 @@ def test_pdf_embedded_text_extraction(sample_pdf_bytes):
 
 def test_pdf_page_limit_enforcement(monkeypatch):
     monkeypatch.setattr(settings, "MAX_PDF_PAGES", 2)
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(3):
         p = doc.new_page()
         p.insert_text((50, 50), "Sample page text")
@@ -36,3 +36,17 @@ def test_ocr_service_graceful_missing_binary(monkeypatch):
     blank_img = Image.new("RGB", (100, 100), color="white")
     result = ocr_service.extract_text(blank_img)
     assert result == ""
+
+
+def test_pymupdf_clean_extraction_no_fitz_warning():
+    """Verify that pymupdf extracts text cleanly without emitting fitz deprecation warnings."""
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((50, 50), "Direct PyMuPDF Verification Content 12345")
+    pdf_bytes = doc.tobytes()
+    doc.close()
+
+    text, page_count = extract_text_from_pdf(pdf_bytes)
+    assert page_count == 1
+    assert "Direct PyMuPDF Verification Content 12345" in text
+
