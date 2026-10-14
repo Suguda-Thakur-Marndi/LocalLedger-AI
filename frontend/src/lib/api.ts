@@ -7,11 +7,32 @@ import type {
   SystemStatus,
   Transaction,
 } from '../types'
+import {
+  CompanionRequiredError,
+  getEffectiveApiBase,
+  normalizeApiUrl,
+} from './runtimeConfig'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
+export { CompanionRequiredError }
+
+export interface ConnectionTestResult {
+  success: boolean
+  data?: any
+  error?: string
+  errorType?: 'mixed_content' | 'cors_network' | 'http_error' | 'timeout' | 'invalid_url'
+  url?: string
+}
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE}${endpoint}`
+  const apiBase = getEffectiveApiBase()
+
+  if (!apiBase) {
+    throw new CompanionRequiredError(
+      'Receipt processing and local ledger actions require an active LocalLedger companion connection.'
+    )
+  }
+
+  const url = `${apiBase}${endpoint}`
   const headers = new Headers(options.headers || {})
 
   if (!(options.body instanceof FormData) && !headers.has('Content-Type')) {
@@ -45,7 +66,94 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return res.json()
 }
 
+/**
+ * Explicit connection checker for local companion.
+ * Safe: only checks `/health`, never transmits any receipt or confidential data.
+ */
+export async function testCompanionConnection(candidateUrl: string): Promise<ConnectionTestResult> {
+  const normalized = normalizeApiUrl(candidateUrl)
+  if (!normalized) {
+    return {
+      success: false,
+      error: 'Please enter a valid companion URL (e.g. http://127.0.0.1:8000/api/v1).',
+      errorType: 'invalid_url',
+    }
+  }
+
+  // Detect HTTPS -> HTTP Mixed Content block in browser
+  if (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    normalized.startsWith('http://')
+  ) {
+    return {
+      success: false,
+      url: normalized,
+      errorType: 'mixed_content',
+      error:
+        'Browser Mixed Content Restriction: Modern browsers block public HTTPS websites from connecting to plaintext HTTP on localhost. To use LocalLedger AI with complete privacy, please run LocalLedger locally or access via HTTP.',
+    }
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 6000)
+
+    const healthUrl = `${normalized}/health`
+    const res = await fetch(healthUrl, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+      return {
+        success: false,
+        url: normalized,
+        errorType: 'http_error',
+        error: `Local companion responded with status ${res.status}: ${res.statusText}`,
+      }
+    }
+
+    const data = await res.json()
+    return {
+      success: true,
+      url: normalized,
+      data,
+    }
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      return {
+        success: false,
+        url: normalized,
+        errorType: 'timeout',
+        error:
+          'Connection timed out after 6 seconds. Please ensure the LocalLedger backend server is running.',
+      }
+    }
+
+    const errorMsg =
+      err.message === 'Failed to fetch'
+        ? 'Unable to reach local companion. Check that your local backend server is running on 127.0.0.1:8000.'
+        : err.message ||
+          'Unable to reach local companion. Check that your local backend server is running on 127.0.0.1:8000.'
+
+    return {
+      success: false,
+      url: normalized,
+      errorType: 'cors_network',
+      error: errorMsg,
+    }
+  }
+}
+
 export const api = {
+  // Base URL inspection
+  getBaseUrl: (): string | null => getEffectiveApiBase(),
+  testConnection: testCompanionConnection,
+
   // Health
   getHealth: () => request<any>('/health'),
 
@@ -70,7 +178,8 @@ export const api = {
   },
 
   getDocumentFileUrl: (documentId: string): string => {
-    return `${API_BASE}/documents/${documentId}/file`
+    const base = getEffectiveApiBase()
+    return base ? `${base}/documents/${documentId}/file` : ''
   },
 
   // Receipts
@@ -82,18 +191,20 @@ export const api = {
   },
 
   // Transactions
-  getTransactions: (params: {
-    search?: string
-    category?: string
-    currency?: string
-    review_status?: string
-    start_date?: string
-    end_date?: string
-    sort_by?: string
-    sort_order?: string
-    page?: number
-    page_size?: number
-  } = {}): Promise<PaginatedTransactions> => {
+  getTransactions: (
+    params: {
+      search?: string
+      category?: string
+      currency?: string
+      review_status?: string
+      start_date?: string
+      end_date?: string
+      sort_by?: string
+      sort_order?: string
+      page?: number
+      page_size?: number
+    } = {}
+  ): Promise<PaginatedTransactions> => {
     const searchParams = new URLSearchParams()
     Object.entries(params).forEach(([key, val]) => {
       if (val !== undefined && val !== null && val !== '') {
@@ -137,14 +248,23 @@ export const api = {
     return request<DashboardSummary>(`/reports/dashboard${query ? `?${query}` : ''}`)
   },
 
-  getExportCsvUrl: (params: { startDate?: string; endDate?: string; category?: string; currency?: string } = {}): string => {
+  getExportCsvUrl: (
+    params: {
+      startDate?: string
+      endDate?: string
+      category?: string
+      currency?: string
+    } = {}
+  ): string => {
+    const base = getEffectiveApiBase()
+    if (!base) return ''
     const searchParams = new URLSearchParams()
     if (params.startDate) searchParams.append('start_date', params.startDate)
     if (params.endDate) searchParams.append('end_date', params.endDate)
     if (params.category) searchParams.append('category', params.category)
     if (params.currency) searchParams.append('currency', params.currency)
     const query = searchParams.toString()
-    return `${API_BASE}/reports/export${query ? `?${query}` : ''}`
+    return `${base}/reports/export${query ? `?${query}` : ''}`
   },
 
   // Settings
@@ -159,11 +279,19 @@ export const api = {
   },
 
   getBackupExportUrl: (): string => {
-    return `${API_BASE}/settings/export-backup`
+    const base = getEffectiveApiBase()
+    return base ? `${base}/settings/export-backup` : ''
   },
 
   downloadBackupZip: async (): Promise<{ filename: string; blob: Blob }> => {
-    const url = `${API_BASE}/settings/export-backup`
+    const base = getEffectiveApiBase()
+    if (!base) {
+      throw new CompanionRequiredError(
+        'Downloading a vault backup requires an active local companion connection.'
+      )
+    }
+
+    const url = `${base}/settings/export-backup`
     const res = await fetch(url)
     if (!res.ok) {
       let errorDetail = `Backup export failed with status ${res.status}`
@@ -181,7 +309,10 @@ export const api = {
     }
 
     const contentType = res.headers.get('content-type') || ''
-    if (!contentType.includes('application/zip') && !contentType.includes('application/octet-stream')) {
+    if (
+      !contentType.includes('application/zip') &&
+      !contentType.includes('application/octet-stream')
+    ) {
       throw new Error(`Unexpected server response type: ${contentType}. Expected ZIP archive.`)
     }
 

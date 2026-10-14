@@ -3,15 +3,57 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { formatCurrency } from '../../lib/utils'
 import { MonthlyExpenditureChart } from './components/MonthlyExpenditureChart'
+import { useCompanion } from '../../lib/useCompanion'
+import type { DashboardSummary } from '../../types'
+
+const DEMO_REPORTS_SUMMARY: DashboardSummary = {
+  total_receipts: 24,
+  total_transactions: 24,
+  currency_totals: [
+    {
+      currency: 'USD',
+      total_amount: '4820.50',
+      transaction_count: 24,
+      average_amount: '200.85',
+    },
+  ],
+  categories: [
+    { category: 'Software & Subscriptions', total_amount: '1850.00', currency: 'USD', transaction_count: 8, percentage: 38.4 },
+    { category: 'Hardware & Equipment', total_amount: '1420.00', currency: 'USD', transaction_count: 5, percentage: 29.5 },
+    { category: 'Office Supplies & Stationery', total_amount: '680.50', currency: 'USD', transaction_count: 4, percentage: 14.1 },
+    { category: 'Client Meals & Entertainment', total_amount: '510.00', currency: 'USD', transaction_count: 4, percentage: 10.6 },
+    { category: 'Travel & Transportation', total_amount: '360.00', currency: 'USD', transaction_count: 3, percentage: 7.5 },
+  ],
+  available_years: [2026, 2025],
+  monthly_trends: [
+    { month: '2026-01', total_amount: '650.00', currency: 'USD', transaction_count: 3 },
+    { month: '2026-02', total_amount: '820.00', currency: 'USD', transaction_count: 4 },
+    { month: '2026-03', total_amount: '1240.50', currency: 'USD', transaction_count: 6 },
+    { month: '2026-04', total_amount: '910.00', currency: 'USD', transaction_count: 5 },
+    { month: '2026-05', total_amount: '1200.00', currency: 'USD', transaction_count: 6 },
+  ],
+  weekly_trends: [],
+  recent_transactions: [],
+}
 
 export const ReportsPage: React.FC = () => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const { isConnected, isPublicUnconnected, openCompanionModal } = useCompanion()
 
-  const { data: summary, isLoading, isError, refetch } = useQuery({
+  const {
+    data: realSummary,
+    isLoading: isRealLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['reports-summary', startDate, endDate],
     queryFn: () => api.getDashboardSummary(startDate || undefined, endDate || undefined),
+    enabled: isConnected,
   })
+
+  const summary = isPublicUnconnected ? DEMO_REPORTS_SUMMARY : realSummary
+  const isLoading = isConnected && isRealLoading
 
   const exportUrl = api.getExportCsvUrl({
     startDate: startDate || undefined,
@@ -36,14 +78,46 @@ export const ReportsPage: React.FC = () => {
           </p>
         </div>
 
-        <a
-          href={exportUrl}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-all shadow-xs self-start sm:self-auto active:scale-[0.98]"
-        >
-          <span className="material-symbols-outlined text-[18px]">download</span>
-          <span>Export Filtered CSV</span>
-        </a>
+        {isPublicUnconnected ? (
+          <button
+            type="button"
+            onClick={openCompanionModal}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-all shadow-xs self-start sm:self-auto active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-[18px]">download</span>
+            <span>Export Filtered CSV</span>
+          </button>
+        ) : (
+          <a
+            href={exportUrl}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-all shadow-xs self-start sm:self-auto active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-[18px]">download</span>
+            <span>Export Filtered CSV</span>
+          </a>
+        )}
       </div>
+
+      {/* Public Web Preview Notice Banner */}
+      {isPublicUnconnected && (
+        <div className="bg-surface-container-low rounded-xl p-3 sm:p-space-md border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-on-surface">
+            <span className="material-symbols-outlined text-primary text-[20px] shrink-0">
+              analytics
+            </span>
+            <span>
+              <strong>Interactive Reports Demo:</strong> Displaying sample expenditure metrics. Connect your local companion to generate reports from your physical database.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={openCompanionModal}
+            className="px-3 py-1.5 bg-primary text-on-primary rounded-lg font-medium hover:bg-primary-container transition-colors shrink-0"
+          >
+            Connect Companion
+          </button>
+        </div>
+      )}
 
       {/* Date Range Filter Bar with Natural Wrapping */}
       <div className="bg-surface-container-lowest rounded-xl p-space-sm sm:p-space-md shadow-xs border border-outline-variant/30 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
@@ -128,7 +202,7 @@ export const ReportsPage: React.FC = () => {
           monthlyTrends={summary?.monthly_trends}
           currencyTotals={summary?.currency_totals}
           isLoading={isLoading}
-          isError={isError}
+          isError={isError && isConnected}
           onRetry={() => refetch()}
         />
 

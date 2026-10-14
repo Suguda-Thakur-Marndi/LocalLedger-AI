@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import type { Transaction } from '../../types'
 import { formatCurrency, formatDate } from '../../lib/utils'
+import { useCompanion } from '../../lib/useCompanion'
 
 const CATEGORIES = [
   'All Categories',
@@ -21,6 +22,7 @@ const CURRENCIES = ['All Currencies', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY']
 
 export const TransactionsPage: React.FC = () => {
   const queryClient = useQueryClient()
+  const { isConnected, isPublicUnconnected, openCompanionModal } = useCompanion()
 
   // Filters & Pagination State
   const [search, setSearch] = useState('')
@@ -52,6 +54,7 @@ export const TransactionsPage: React.FC = () => {
         sort_by: sortBy,
         sort_order: sortOrder,
       }),
+    enabled: isConnected,
   })
 
   // Delete Mutation
@@ -141,13 +144,24 @@ export const TransactionsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <a
-            href={exportUrl}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 min-h-[44px] bg-surface-container-lowest hover:bg-surface-container-low text-on-surface border border-outline-variant/30 rounded-xl font-body-sm text-xs sm:text-body-sm font-medium transition-all shadow-xs"
-          >
-            <span className="material-symbols-outlined text-[16px] text-outline">download</span>
-            <span>Export CSV</span>
-          </a>
+          {isPublicUnconnected ? (
+            <button
+              type="button"
+              onClick={openCompanionModal}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 min-h-[44px] bg-surface-container-lowest hover:bg-surface-container-low text-on-surface border border-outline-variant/30 rounded-xl font-body-sm text-xs sm:text-body-sm font-medium transition-all shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-outline">download</span>
+              <span>Export CSV</span>
+            </button>
+          ) : (
+            <a
+              href={exportUrl}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 min-h-[44px] bg-surface-container-lowest hover:bg-surface-container-low text-on-surface border border-outline-variant/30 rounded-xl font-body-sm text-xs sm:text-body-sm font-medium transition-all shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-outline">download</span>
+              <span>Export CSV</span>
+            </a>
+          )}
 
           <Link
             to="/upload"
@@ -406,265 +420,291 @@ export const TransactionsPage: React.FC = () => {
         </div>
       )}
 
-      {/* MOBILE FEED: Responsive Transaction Cards (Visible on phones < md) */}
-      <div className="block md:hidden space-y-3">
-        {isLoading ? (
-          <div className="space-y-3 animate-pulse">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-surface-container rounded-xl" />
-            ))}
+      {isPublicUnconnected ? (
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-surface-container-low text-primary flex items-center justify-center mx-auto">
+            <span className="material-symbols-outlined text-[28px]">table_chart</span>
           </div>
-        ) : transactions.length > 0 ? (
-          transactions.map((tx) => (
-            <div
-              key={tx.id}
-              className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-space-md shadow-xs flex flex-col gap-2.5"
-            >
-              {/* Header: Vendor, Category Icon & Status Badge */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant shrink-0">
-                    <span className="material-symbols-outlined text-[18px]">
-                      {getCategoryIcon(tx.category)}
-                    </span>
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-semibold text-body-md text-on-surface truncate">
-                      {tx.merchant}
-                    </span>
-                    <span className="text-[11px] text-outline font-mono truncate">
-                      {tx.invoice_number ? `#${tx.invoice_number}` : tx.original_filename}
-                    </span>
-                  </div>
-                </div>
-
-                {tx.review_status === 'reviewed' ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-label-caps bg-secondary-container text-on-secondary-container font-medium shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                    Reviewed
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-label-caps bg-tertiary-fixed text-on-tertiary-fixed-variant font-medium shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
-                    Needs review
-                  </span>
-                )}
-              </div>
-
-              {/* Amount, Date & Category */}
-              <div className="py-2 border-y border-surface-container-low flex items-center justify-between text-body-sm">
-                <div>
-                  <span className="text-on-surface-variant text-[11px] font-label-caps uppercase block">
-                    Amount
-                  </span>
-                  <span className="font-table-numeric text-headline-sm font-semibold text-on-surface">
-                    {formatCurrency(tx.total, tx.currency)}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-on-surface-variant text-[11px] font-label-caps uppercase block">
-                    Date
-                  </span>
-                  <span className="text-on-surface font-medium text-xs">
-                    {formatDate(tx.transaction_date)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Bottom Actions: Edit, Delete, or Audit */}
-              <div className="flex items-center justify-between pt-1">
-                <span className="font-label-caps text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded truncate max-w-[130px]">
-                  {tx.category}
-                </span>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setEditingTx(tx)}
-                    className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors"
-                    title="Edit Record"
-                    aria-label={`Edit ${tx.merchant}`}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">edit</span>
-                  </button>
-
-                  <button
-                    onClick={() => setDeletingTx(tx)}
-                    className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container rounded-lg transition-colors"
-                    title="Delete Record"
-                    aria-label={`Delete ${tx.merchant}`}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="p-8 text-center text-on-surface-variant bg-surface-container-lowest rounded-xl border border-outline-variant/30 space-y-2">
-            <span className="material-symbols-outlined text-[32px] text-outline">receipt</span>
-            <p className="font-body-sm">No transactions match your criteria.</p>
+          <div>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Personal Ledger Stored Locally
+            </h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-relaxed">
+              Transaction records are encrypted and stored exclusively in your local SQLite database. Connect your local companion on 127.0.0.1:8000 to view and manage your ledger.
+            </p>
           </div>
-        )}
-      </div>
-
-      {/* DESKTOP/TABLET TABLE: Preserved Efficient Data Table (Hidden on phones < md) */}
-      <div className="hidden md:block bg-surface-container-lowest rounded-xl shadow-xs border border-outline-variant/30 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low text-on-surface-variant font-label-caps text-label-caps uppercase tracking-wider">
-                <th
-                  onClick={() => {
-                    setSortBy('merchant')
-                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-                  }}
-                  className="py-3 px-space-md sm:px-space-lg font-semibold cursor-pointer hover:text-on-surface"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Merchant</span>
-                    {sortBy === 'merchant' && (
-                      <span className="material-symbols-outlined text-[14px]">
-                        {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
-                      </span>
-                    )}
-                  </div>
-                </th>
-                <th
-                  onClick={() => {
-                    setSortBy('transaction_date')
-                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-                  }}
-                  className="py-3 px-space-sm font-semibold cursor-pointer hover:text-on-surface"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Date</span>
-                    {sortBy === 'transaction_date' && (
-                      <span className="material-symbols-outlined text-[14px]">
-                        {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
-                      </span>
-                    )}
-                  </div>
-                </th>
-                <th className="py-3 px-space-sm font-semibold">Category</th>
-                <th className="py-3 px-space-sm font-semibold">Invoice #</th>
-                <th
-                  onClick={() => {
-                    setSortBy('total')
-                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-                  }}
-                  className="py-3 px-space-sm font-semibold text-right cursor-pointer hover:text-on-surface"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    <span>Amount</span>
-                    {sortBy === 'total' && (
-                      <span className="material-symbols-outlined text-[14px]">
-                        {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
-                      </span>
-                    )}
-                  </div>
-                </th>
-                <th className="py-3 px-space-sm font-semibold">Status</th>
-                <th className="py-3 px-space-md sm:px-space-lg font-semibold text-right">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-container-low font-body-sm text-body-sm">
-              {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="py-12 text-center text-on-surface-variant font-body-sm"
-                  >
-                    Loading transactions...
-                  </td>
-                </tr>
-              ) : transactions.length > 0 ? (
-                transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-surface transition-colors group">
-                    <td className="py-3.5 px-space-md sm:px-space-lg font-medium text-on-surface">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:bg-surface-container-high transition-colors shrink-0">
-                          <span className="material-symbols-outlined text-[18px]">
-                            {getCategoryIcon(tx.category)}
-                          </span>
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-semibold text-on-surface truncate">
-                            {tx.merchant}
-                          </span>
-                          <span className="text-[11px] text-outline font-mono truncate">
-                            {tx.original_filename}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-3.5 px-space-sm text-on-surface-variant whitespace-nowrap">
-                      {formatDate(tx.transaction_date)}
-                    </td>
-
-                    <td className="py-3.5 px-space-sm">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded font-label-caps text-label-caps bg-surface-container text-on-surface-variant">
-                        {tx.category}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-space-sm text-outline font-mono text-[12px]">
-                      {tx.invoice_number || '—'}
-                    </td>
-
-                    <td className="py-3.5 px-space-sm text-right font-table-numeric font-semibold text-on-surface whitespace-nowrap">
-                      {formatCurrency(tx.total, tx.currency)}
-                    </td>
-
-                    <td className="py-3.5 px-space-sm whitespace-nowrap">
-                      {tx.review_status === 'reviewed' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label-caps font-label-caps bg-secondary-container text-on-secondary-container font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-secondary" /> Reviewed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label-caps font-label-caps bg-tertiary-fixed text-on-tertiary-fixed-variant font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-tertiary" /> Needs review
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-space-md sm:px-space-lg text-right">
-                      <div className="flex items-center justify-end gap-1 text-outline">
-                        <button
-                          onClick={() => setEditingTx(tx)}
-                          className="p-1 hover:text-on-surface hover:bg-surface-container rounded transition-colors"
-                          title="Edit Transaction"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">edit</span>
-                        </button>
-
-                        <button
-                          onClick={() => setDeletingTx(tx)}
-                          className="p-1 hover:text-error hover:bg-error-container rounded transition-colors"
-                          title="Delete Record"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">delete</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="py-12 text-center text-on-surface-variant font-body-sm"
-                  >
-                    No transactions match the selected criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <button
+            type="button"
+            onClick={openCompanionModal}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl text-body-sm font-semibold transition-all shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[18px]">laptop_mac</span>
+            <span>Connect Local Companion</span>
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* MOBILE FEED: Responsive Transaction Cards (Visible on phones < md) */}
+          <div className="block md:hidden space-y-3">
+            {isLoading ? (
+              <div className="space-y-3 animate-pulse">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-32 bg-surface-container rounded-xl" />
+                ))}
+              </div>
+            ) : transactions.length > 0 ? (
+              transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-space-md shadow-xs flex flex-col gap-2.5"
+                >
+                  {/* Header: Vendor, Category Icon & Status Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant shrink-0">
+                        <span className="material-symbols-outlined text-[18px]">
+                          {getCategoryIcon(tx.category)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-semibold text-body-md text-on-surface truncate">
+                          {tx.merchant}
+                        </span>
+                        <span className="text-[11px] text-outline font-mono truncate">
+                          {tx.invoice_number ? `#${tx.invoice_number}` : tx.original_filename}
+                        </span>
+                      </div>
+                    </div>
+
+                    {tx.review_status === 'reviewed' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-label-caps bg-secondary-container text-on-secondary-container font-medium shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                        Reviewed
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-label-caps bg-tertiary-fixed text-on-tertiary-fixed-variant font-medium shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
+                        Needs review
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Amount, Date & Category */}
+                  <div className="py-2 border-y border-surface-container-low flex items-center justify-between text-body-sm">
+                    <div>
+                      <span className="text-on-surface-variant text-[11px] font-label-caps uppercase block">
+                        Amount
+                      </span>
+                      <span className="font-table-numeric text-headline-sm font-semibold text-on-surface">
+                        {formatCurrency(tx.total, tx.currency)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-on-surface-variant text-[11px] font-label-caps uppercase block">
+                        Date
+                      </span>
+                      <span className="text-on-surface font-medium text-xs">
+                        {formatDate(tx.transaction_date)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Actions: Edit, Delete, or Audit */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="font-label-caps text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded truncate max-w-[130px]">
+                      {tx.category}
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setEditingTx(tx)}
+                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors"
+                        title="Edit Record"
+                        aria-label={`Edit ${tx.merchant}`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                      </button>
+
+                      <button
+                        onClick={() => setDeletingTx(tx)}
+                        className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container rounded-lg transition-colors"
+                        title="Delete Record"
+                        aria-label={`Delete ${tx.merchant}`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-on-surface-variant bg-surface-container-lowest rounded-xl border border-outline-variant/30 space-y-2">
+                <span className="material-symbols-outlined text-[32px] text-outline">receipt</span>
+                <p className="font-body-sm">No transactions match your criteria.</p>
+              </div>
+            )}
+          </div>
+
+          {/* DESKTOP/TABLET TABLE: Preserved Efficient Data Table (Hidden on phones < md) */}
+          <div className="hidden md:block bg-surface-container-lowest rounded-xl shadow-xs border border-outline-variant/30 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-surface-container-low text-on-surface-variant font-label-caps text-label-caps uppercase tracking-wider">
+                    <th
+                      onClick={() => {
+                        setSortBy('merchant')
+                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+                      }}
+                      className="py-3 px-space-md sm:px-space-lg font-semibold cursor-pointer hover:text-on-surface"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Merchant</span>
+                        {sortBy === 'merchant' && (
+                          <span className="material-symbols-outlined text-[14px]">
+                            {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => {
+                        setSortBy('transaction_date')
+                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+                      }}
+                      className="py-3 px-space-sm font-semibold cursor-pointer hover:text-on-surface"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Date</span>
+                        {sortBy === 'transaction_date' && (
+                          <span className="material-symbols-outlined text-[14px]">
+                            {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th className="py-3 px-space-sm font-semibold">Category</th>
+                    <th className="py-3 px-space-sm font-semibold">Invoice #</th>
+                    <th
+                      onClick={() => {
+                        setSortBy('total')
+                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+                      }}
+                      className="py-3 px-space-sm font-semibold text-right cursor-pointer hover:text-on-surface"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Amount</span>
+                        {sortBy === 'total' && (
+                          <span className="material-symbols-outlined text-[14px]">
+                            {sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th className="py-3 px-space-sm font-semibold">Status</th>
+                    <th className="py-3 px-space-md sm:px-space-lg font-semibold text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-low font-body-sm text-body-sm">
+                  {isLoading ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="py-12 text-center text-on-surface-variant font-body-sm"
+                      >
+                        Loading transactions...
+                      </td>
+                    </tr>
+                  ) : transactions.length > 0 ? (
+                    transactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-surface transition-colors group">
+                        <td className="py-3.5 px-space-md sm:px-space-lg font-medium text-on-surface">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:bg-surface-container-high transition-colors shrink-0">
+                              <span className="material-symbols-outlined text-[18px]">
+                                {getCategoryIcon(tx.category)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-semibold text-on-surface truncate">
+                                {tx.merchant}
+                              </span>
+                              <span className="text-[11px] text-outline font-mono truncate">
+                                {tx.original_filename}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-space-sm text-on-surface-variant whitespace-nowrap">
+                          {formatDate(tx.transaction_date)}
+                        </td>
+
+                        <td className="py-3.5 px-space-sm">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded font-label-caps text-label-caps bg-surface-container text-on-surface-variant">
+                            {tx.category}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-space-sm text-outline font-mono text-[12px]">
+                          {tx.invoice_number || '—'}
+                        </td>
+
+                        <td className="py-3.5 px-space-sm text-right font-table-numeric font-semibold text-on-surface whitespace-nowrap">
+                          {formatCurrency(tx.total, tx.currency)}
+                        </td>
+
+                        <td className="py-3.5 px-space-sm whitespace-nowrap">
+                          {tx.review_status === 'reviewed' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label-caps font-label-caps bg-secondary-container text-on-secondary-container font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-secondary" /> Reviewed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label-caps font-label-caps bg-tertiary-fixed text-on-tertiary-fixed-variant font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-tertiary" /> Needs review
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-space-md sm:px-space-lg text-right">
+                          <div className="flex items-center justify-end gap-1 text-outline">
+                            <button
+                              onClick={() => setEditingTx(tx)}
+                              className="p-1 hover:text-on-surface hover:bg-surface-container rounded transition-colors"
+                              title="Edit Transaction"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+
+                            <button
+                              onClick={() => setDeletingTx(tx)}
+                              className="p-1 hover:text-error hover:bg-error-container rounded transition-colors"
+                              title="Delete Record"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="py-12 text-center text-on-surface-variant font-body-sm"
+                      >
+                        No transactions match the selected criteria.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Pagination Footer: Touch friendly on all screens */}
       {total > pageSize && (

@@ -1,0 +1,24 @@
+# Render Blueprint Specification for LocalLedger AI Frontend Static Site
+# Preserves local-first privacy architecture: zero backend deployment on public cloud.
+services:
+  - type: web
+    name: localledger-ai-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

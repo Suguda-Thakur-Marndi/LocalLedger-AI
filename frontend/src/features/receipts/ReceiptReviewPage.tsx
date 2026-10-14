@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { ConfirmReceiptRequest, ReceiptReviewPayload } from '../../types'
+import { useCompanion } from '../../lib/useCompanion'
 
 const CATEGORIES = [
   'Software & Subscriptions',
@@ -45,12 +46,13 @@ export const ReceiptReviewPage: React.FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [reextractKey, setReextractKey] = useState(0)
+  const { isConnected, isPublicUnconnected, openCompanionModal } = useCompanion()
 
   // If no documentId was provided in the route, fetch pending documents
   const { data: pendingQueue } = useQuery({
     queryKey: ['pending-review-queue'],
     queryFn: () => api.getTransactions({ review_status: 'pending_review', page_size: 10 }),
-    enabled: !documentId,
+    enabled: isConnected && !documentId,
   })
 
   // Load document review payload
@@ -61,7 +63,7 @@ export const ReceiptReviewPage: React.FC = () => {
   } = useQuery({
     queryKey: ['receipt-review', documentId],
     queryFn: () => api.getDocumentReview(documentId!),
-    enabled: !!documentId,
+    enabled: isConnected && !!documentId,
   })
 
   // Re-extraction mutation
@@ -72,6 +74,49 @@ export const ReceiptReviewPage: React.FC = () => {
       setReextractKey((prev) => prev + 1)
     },
   })
+
+  // In public web mode without companion, show local companion requirement notice
+  if (isPublicUnconnected) {
+    return (
+      <div className="max-w-4xl mx-auto px-space-sm sm:px-space-md lg:px-space-xl py-space-md sm:py-space-lg space-y-space-md sm:space-y-space-lg pb-24 md:pb-8">
+        <div>
+          <div className="flex items-center gap-space-xs text-on-surface-variant font-label-caps text-label-caps uppercase tracking-wider">
+            <span>Audit Queue</span>
+            <span>•</span>
+            <span className="text-primary font-semibold">Verification Desk</span>
+          </div>
+          <h1 className="font-display text-2xl sm:text-display text-on-surface tracking-tight mt-1">
+            Review Workspace
+          </h1>
+          <p className="font-body-sm sm:font-body-md text-on-surface-variant mt-1">
+            Audit extracted line items, verify tax allocations, and commit entries to your sovereign ledger.
+          </p>
+        </div>
+
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-surface-container-low text-primary flex items-center justify-center mx-auto">
+            <span className="material-symbols-outlined text-[28px]">rate_review</span>
+          </div>
+          <div>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Local Companion Required
+            </h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-relaxed">
+              Receipt documents, extracted fields, and verification queue live strictly on your local machine. Connect your local companion on 127.0.0.1:8000 to review documents.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openCompanionModal}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl text-body-sm font-semibold transition-all shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[18px]">laptop_mac</span>
+            <span>Connect Local Companion</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // If no documentId is passed, render the review queue selector
   if (!documentId) {

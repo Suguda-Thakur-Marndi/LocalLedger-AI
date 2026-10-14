@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { api } from '../../lib/api'
+import { useCompanion } from '../../lib/useCompanion'
 
 export const AppLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -12,10 +13,20 @@ export const AppLayout: React.FC = () => {
   const [mobileSearchVisible, setMobileSearchVisible] = useState(false)
   const navigate = useNavigate()
 
+  const {
+    runtimeMode,
+    isLocal,
+    isConnected,
+    isPublicUnconnected,
+    openCompanionModal,
+  } = useCompanion()
+
+  // Only query system health when running locally or companion is connected
   const { data: health } = useQuery({
     queryKey: ['system-health'],
     queryFn: () => api.getHealth(),
-    refetchInterval: 30000,
+    enabled: isConnected,
+    refetchInterval: isConnected ? 30000 : false,
   })
 
   const ollamaConnected = health?.ollama?.connected ?? false
@@ -112,33 +123,60 @@ export const AppLayout: React.FC = () => {
                 <span className="material-symbols-outlined text-[22px]">search</span>
               </button>
 
-              {/* Local Neural Engine Status Pill */}
-              <div
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-caps text-label-caps border ${
-                  ollamaConnected
-                    ? 'bg-surface-container-low text-on-surface-variant border-primary/20'
-                    : 'bg-surface-container-highest text-tertiary-container border-outline-variant'
-                }`}
-                title={
-                  ollamaConnected
-                    ? 'Local Ollama is active. Zero documents leave your machine.'
-                    : 'Ollama is offline. Rule-based local OCR fallback is active.'
-                }
-              >
-                <span
-                  className={`material-symbols-outlined text-[14px] ${
-                    ollamaConnected ? 'text-primary' : 'text-tertiary'
-                  }`}
+              {/* Status Pill: Local Engine vs Web Preview */}
+              {isPublicUnconnected ? (
+                <button
+                  type="button"
+                  onClick={openCompanionModal}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-caps text-label-caps border bg-surface-container-highest text-tertiary-container border-outline-variant hover:bg-surface-container transition-colors"
+                  title="Running in web preview without connected companion. Click to connect local companion."
                 >
-                  verified_user
-                </span>
-                <span className="hidden sm:inline">
-                  {ollamaConnected ? 'Neural Engine · Local' : 'Local OCR · Fallback'}
-                </span>
-                <span className="sm:hidden text-[10px]">
-                  {ollamaConnected ? 'Local AI' : 'OCR'}
-                </span>
-              </div>
+                  <span className="material-symbols-outlined text-[14px] text-tertiary">
+                    cloud_off
+                  </span>
+                  <span className="hidden sm:inline">Web Preview · No Companion</span>
+                  <span className="sm:hidden text-[10px]">Preview</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={!isLocal ? openCompanionModal : undefined}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-caps text-label-caps border transition-colors ${
+                    ollamaConnected
+                      ? 'bg-surface-container-low text-on-surface-variant border-primary/20'
+                      : 'bg-surface-container-highest text-tertiary-container border-outline-variant'
+                  }`}
+                  title={
+                    runtimeMode === 'companion_connected'
+                      ? 'Connected to local companion. Documents processed on your machine.'
+                      : ollamaConnected
+                      ? 'Local Ollama is active. Zero documents leave your machine.'
+                      : 'Ollama is offline. Rule-based local OCR fallback is active.'
+                  }
+                >
+                  <span
+                    className={`material-symbols-outlined text-[14px] ${
+                      ollamaConnected ? 'text-primary' : 'text-tertiary'
+                    }`}
+                  >
+                    verified_user
+                  </span>
+                  <span className="hidden sm:inline">
+                    {runtimeMode === 'companion_connected'
+                      ? 'Companion Active · Local'
+                      : ollamaConnected
+                      ? 'Neural Engine · Local'
+                      : 'Local OCR · Fallback'}
+                  </span>
+                  <span className="sm:hidden text-[10px]">
+                    {runtimeMode === 'companion_connected'
+                      ? 'Companion'
+                      : ollamaConnected
+                      ? 'Local AI'
+                      : 'OCR'}
+                  </span>
+                </button>
+              )}
 
               {/* Upload Receipt Action */}
               <Link
@@ -180,6 +218,28 @@ export const AppLayout: React.FC = () => {
 
         {/* Scrollable Content Body with Safe Bottom Padding */}
         <main className="relative pt-16 pb-24 md:pb-8 flex-1 bg-surface">
+          {/* Public Web Preview Top Banner */}
+          {isPublicUnconnected && (
+            <div className="bg-surface-container-low border-b border-primary/20 px-3 sm:px-space-md lg:px-space-xl py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 text-on-surface">
+                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                  privacy_tip
+                </span>
+                <span>
+                  <strong>Web Preview Mode:</strong> Receipt processing and database records run 100% locally on your computer.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={openCompanionModal}
+                className="inline-flex items-center gap-1 font-semibold text-primary hover:underline shrink-0"
+              >
+                <span>Connect Local Companion</span>
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </button>
+            </div>
+          )}
+
           <Outlet />
         </main>
       </div>
@@ -221,6 +281,15 @@ export const AppLayout: React.FC = () => {
                 </span>
                 <p className="text-xs">
                   All invoice documents, optical character recognition (OCR), and Ollama model interactions happen exclusively inside your host machine loopback. No cloud endpoints receive your financial files.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-semibold text-on-surface block text-xs uppercase tracking-wider mb-1">
+                  Public Web vs. Local Companion
+                </span>
+                <p className="text-xs">
+                  When accessing LocalLedger AI through a public web URL, you can explore the dashboard and view reports in demo preview. To process live receipts, connect the web interface to your running local companion backend on 127.0.0.1:8000.
                 </p>
               </div>
 

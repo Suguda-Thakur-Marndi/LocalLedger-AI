@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { formatCurrency, formatDate } from '../../lib/utils'
+import { useCompanion } from '../../lib/useCompanion'
 
 export const ReceiptsPage: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'reviewed' | 'pending_review'>('all')
   const [search, setSearch] = useState('')
+  const { isConnected, isPublicUnconnected, openCompanionModal } = useCompanion()
 
   const { data, isLoading } = useQuery({
     queryKey: ['receipts-gallery', filter, search],
@@ -16,6 +18,7 @@ export const ReceiptsPage: React.FC = () => {
         review_status: filter !== 'all' ? filter : undefined,
         page_size: 50,
       }),
+    enabled: isConnected,
   })
 
   const transactions = data?.items || []
@@ -86,7 +89,29 @@ export const ReceiptsPage: React.FC = () => {
       </div>
 
       {/* Receipts Grid */}
-      {isLoading ? (
+      {isPublicUnconnected ? (
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-surface-container-low text-primary flex items-center justify-center mx-auto">
+            <span className="material-symbols-outlined text-[28px]">folder_special</span>
+          </div>
+          <div>
+            <h3 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Local Vault Inactive
+            </h3>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 leading-relaxed">
+              Your receipt documents and extracted OCR data remain strictly on your local computer. Connect your local companion on 127.0.0.1:8000 to browse your archive.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openCompanionModal}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl text-body-sm font-semibold transition-all shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[18px]">laptop_mac</span>
+            <span>Connect Local Companion</span>
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-md animate-pulse">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-48 bg-surface-container rounded-xl" />

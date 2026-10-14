@@ -2,6 +2,7 @@ import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
+import { useCompanion } from '../../lib/useCompanion'
 
 interface SidebarProps {
   mobileOpen?: boolean
@@ -19,10 +20,13 @@ const navItems = [
 ]
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMobile, onOpenHelp }) => {
+  const { isConnected, isLocal, runtimeMode, openCompanionModal } = useCompanion()
+
   const { data: health } = useQuery({
     queryKey: ['system-health'],
     queryFn: () => api.getHealth(),
-    refetchInterval: 30000,
+    enabled: isConnected,
+    refetchInterval: isConnected ? 30000 : false,
   })
 
   const ollamaConnected = health?.ollama?.connected ?? false
@@ -53,16 +57,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
             )}
           </div>
 
-          <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-low text-primary text-label-caps font-label-caps">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                ollamaConnected ? 'bg-primary animate-pulse' : 'bg-tertiary'
-              }`}
-            />
-            <span className="truncate">
-              {ollamaConnected ? 'Local processing active' : 'Ollama Offline (OCR Mode)'}
-            </span>
-          </div>
+          {/* Local Status Indicator */}
+          {isConnected ? (
+            <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-low text-primary text-label-caps font-label-caps">
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  ollamaConnected ? 'bg-primary animate-pulse' : 'bg-tertiary'
+                }`}
+              />
+              <span className="truncate">
+                {runtimeMode === 'companion_connected'
+                  ? 'Companion Bridge Active'
+                  : ollamaConnected
+                  ? 'Local processing active'
+                  : 'Ollama Offline (OCR Mode)'}
+              </span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={openCompanionModal}
+              className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-highest text-tertiary-container hover:bg-surface-container transition-colors text-label-caps font-label-caps text-left"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
+              <span className="truncate">Web Preview · Connect Companion</span>
+            </button>
+          )}
         </div>
 
         {/* Section Header */}
@@ -99,21 +119,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
       {/* Footer Area: Model status, Settings, User profile */}
       <div className="flex flex-col gap-space-xs p-2 lg:p-space-sm">
         {/* Model Indicator (Desktop Only) */}
-        <div className="mx-2 p-2 rounded-lg bg-surface-container-low hidden lg:flex items-center justify-between">
-          <div className="flex items-center gap-1.5 truncate pr-1">
-            <span className="material-symbols-outlined text-primary text-[16px] shrink-0">memory</span>
-            <span className="font-label-caps text-label-caps text-on-surface-variant truncate">
-              {modelName}
+        {isConnected ? (
+          <div className="mx-2 p-2 rounded-lg bg-surface-container-low hidden lg:flex items-center justify-between">
+            <div className="flex items-center gap-1.5 truncate pr-1">
+              <span className="material-symbols-outlined text-primary text-[16px] shrink-0">memory</span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant truncate">
+                {modelName}
+              </span>
+            </div>
+            <span
+              className={`font-label-caps text-label-caps shrink-0 font-semibold ${
+                ollamaConnected ? 'text-primary' : 'text-tertiary-container'
+              }`}
+            >
+              {ollamaConnected ? 'Ready' : 'OCR Fallback'}
             </span>
           </div>
-          <span
-            className={`font-label-caps text-label-caps shrink-0 font-semibold ${
-              ollamaConnected ? 'text-primary' : 'text-tertiary-container'
-            }`}
+        ) : (
+          <button
+            type="button"
+            onClick={openCompanionModal}
+            className="mx-2 p-2 rounded-lg bg-surface-container-low hover:bg-surface-container hidden lg:flex items-center justify-between transition-colors text-left"
           >
-            {ollamaConnected ? 'Ready' : 'OCR Fallback'}
-          </span>
-        </div>
+            <div className="flex items-center gap-1.5 truncate pr-1">
+              <span className="material-symbols-outlined text-tertiary text-[16px] shrink-0">power_off</span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant truncate">
+                Local Companion
+              </span>
+            </div>
+            <span className="font-label-caps text-label-caps shrink-0 font-semibold text-primary">
+              Connect
+            </span>
+          </button>
+        )}
 
         {/* Secondary Nav: Settings & Help */}
         <nav className="flex flex-col gap-0.5">
@@ -157,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
                 Alex Rivera
               </span>
               <span className="font-label-caps text-label-caps text-on-surface-variant leading-tight truncate">
-                Freelance Pro Plan
+                {isLocal ? 'Local Vault' : runtimeMode === 'companion_connected' ? 'Connected Companion' : 'Web Preview'}
               </span>
             </div>
           </div>

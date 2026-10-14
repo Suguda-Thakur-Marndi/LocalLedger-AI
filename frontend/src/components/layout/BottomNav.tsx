@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
+import { useCompanion } from '../../lib/useCompanion'
 
 interface BottomNavProps {
   onOpenHelp?: () => void
@@ -10,10 +11,12 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({ onOpenHelp }) => {
   const [moreDrawerOpen, setMoreDrawerOpen] = useState(false)
   const location = useLocation()
+  const { isConnected, openCompanionModal } = useCompanion()
 
   const { data: health } = useQuery({
     queryKey: ['system-health'],
     queryFn: () => api.getHealth(),
+    enabled: isConnected,
   })
 
   const ollamaConnected = health?.ollama?.connected ?? false
@@ -105,10 +108,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenHelp }) => {
                   <span className="text-[11px] font-label-caps text-primary flex items-center gap-1">
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
-                        ollamaConnected ? 'bg-primary animate-pulse' : 'bg-tertiary'
+                        isConnected && ollamaConnected
+                          ? 'bg-primary animate-pulse'
+                          : isConnected
+                          ? 'bg-secondary'
+                          : 'bg-tertiary'
                       }`}
                     />
-                    {ollamaConnected ? 'Local inference active' : 'Local OCR fallback active'}
+                    {isConnected
+                      ? ollamaConnected
+                        ? 'Local inference active'
+                        : 'Local OCR fallback active'
+                      : 'Web Preview · No Companion'}
                   </span>
                 </div>
               </div>
@@ -172,24 +183,45 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenHelp }) => {
                 </div>
               </NavLink>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setMoreDrawerOpen(false)
-                  if (onOpenHelp) onOpenHelp()
-                }}
-                className="flex items-center gap-2.5 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors min-h-[44px] text-left"
-              >
-                <span className="material-symbols-outlined text-primary text-[22px]">help_outline</span>
-                <div className="text-left">
-                  <span className="block font-body-sm font-semibold text-on-surface text-xs">
-                    Help &amp; Docs
-                  </span>
-                  <span className="text-[10px] text-on-surface-variant font-label-caps">
-                    Privacy guide
-                  </span>
-                </div>
-              </button>
+              {!isConnected ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreDrawerOpen(false)
+                    openCompanionModal()
+                  }}
+                  className="flex items-center gap-2.5 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors min-h-[44px] text-left"
+                >
+                  <span className="material-symbols-outlined text-primary text-[22px]">laptop_mac</span>
+                  <div className="text-left">
+                    <span className="block font-body-sm font-semibold text-on-surface text-xs">
+                      Companion
+                    </span>
+                    <span className="text-[10px] text-on-surface-variant font-label-caps">
+                      Connect local app
+                    </span>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreDrawerOpen(false)
+                    if (onOpenHelp) onOpenHelp()
+                  }}
+                  className="flex items-center gap-2.5 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors min-h-[44px] text-left"
+                >
+                  <span className="material-symbols-outlined text-primary text-[22px]">help_outline</span>
+                  <div className="text-left">
+                    <span className="block font-body-sm font-semibold text-on-surface text-xs">
+                      Help &amp; Docs
+                    </span>
+                    <span className="text-[10px] text-on-surface-variant font-label-caps">
+                      Privacy guide
+                    </span>
+                  </div>
+                </button>
+              )}
             </div>
 
             {/* Offline Vault & Host Profile */}
@@ -200,7 +232,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenHelp }) => {
                 </div>
                 <div className="flex flex-col">
                   <span className="font-semibold text-on-surface">Alex Rivera</span>
-                  <span className="text-[10px] text-on-surface-variant">Local Vault Active</span>
+                  <span className="text-[10px] text-on-surface-variant">
+                    {isConnected ? 'Local Vault Active' : 'Web Preview Mode'}
+                  </span>
                 </div>
               </div>
               <span className="font-mono text-[10px] text-outline">v2.4.1-rc</span>
