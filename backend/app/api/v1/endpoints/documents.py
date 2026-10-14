@@ -76,12 +76,60 @@ async def upload_document(
     # 3. Compute SHA-256 hash
     sha256_hash = compute_sha256(content)
 
-    # 4. Check duplicate
+    # 4. Check duplicate by SHA-256 hash (idempotent processing)
+    existing_doc = (
+        db.execute(
+            select(Document)
+            .where(Document.sha256_hash == sha256_hash)
+            .order_by(
+                Document.transaction_id.is_(None),  # Prioritize linked document
+                Document.created_at.asc(),
+            )
+        )
+        .scalars()
+        .first()
+    )
+
     existing_tx = (
         db.execute(select(Transaction).where(Transaction.document_content_hash == sha256_hash))
         .scalars()
         .first()
     )
+
+    if existing_doc:
+        # Idempotent response: return existing document without duplicating records or disk assets
+        target_path = resolve_safe_upload_path(existing_doc.storage_filename)
+        if not target_path.is_file():
+            # If disk file was missing, restore it from current upload payload
+            with open(target_path, "wb") as f:
+                f.write(content)
+
+        # If transaction was confirmed elsewhere, ensure document link is synced
+        if not existing_doc.transaction_id and existing_tx:
+            existing_doc.transaction_id = existing_tx.id
+            existing_doc.processing_status = "confirmed"
+            db.commit()
+            db.refresh(existing_doc)
+
+        existing_tx_id = existing_doc.transaction_id or (existing_tx.id if existing_tx else None)
+
+        logger.info(
+            "Idempotent duplicate upload detected: hash=%s, returning existing document_id=%s, linked_tx=%s",
+            sha256_hash[:8],
+            existing_doc.id,
+            existing_tx_id,
+        )
+
+        return DocumentUploadResponse(
+            document_id=existing_doc.id,
+            original_filename=existing_doc.original_filename,
+            mime_type=existing_doc.mime_type,
+            file_size=existing_doc.file_size,
+            sha256_hash=existing_doc.sha256_hash,
+            processing_status=existing_doc.processing_status,
+            is_duplicate=True,
+            existing_transaction_id=existing_tx_id,
+        )
 
     clean_filename = sanitize_filename(file.filename or "receipt")
     storage_name = generate_storage_filename(clean_filename)
@@ -126,10 +174,11 @@ async def upload_document(
             error_details,
         )
     else:
-        processing_status = "extracted"
+        processing_status = "confirmed" if existing_tx else "extracted"
 
     # 6. Create Document record
     doc = Document(
+        transaction_id=existing_tx.id if existing_tx else None,
         storage_filename=storage_name,
         original_filename=clean_filename,
         mime_type=actual_mime,

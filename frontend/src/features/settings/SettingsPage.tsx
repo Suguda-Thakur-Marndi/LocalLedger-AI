@@ -9,6 +9,9 @@ export const SettingsPage: React.FC = () => {
   const [confirmInput, setConfirmInput] = useState('')
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [checkMessage, setCheckMessage] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null)
 
   const { data: status, isLoading, refetch } = useQuery({
     queryKey: ['system-status'],
@@ -55,6 +58,30 @@ export const SettingsPage: React.FC = () => {
       return
     }
     deleteMutation.mutate(confirmInput.trim())
+  }
+
+  const handleExportBackup = async () => {
+    setIsExporting(true)
+    setExportError(null)
+    setExportSuccess(null)
+    try {
+      const { filename, blob } = await api.downloadBackupZip()
+      const objectUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(objectUrl)
+      setExportSuccess(
+        `Backup archive "${filename}" (${formatBytes(blob.size)}) created and downloaded successfully.`
+      )
+    } catch (err: any) {
+      setExportError(err.message || 'Failed to export vault backup archive.')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   return (
@@ -228,28 +255,59 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* SECTION 3: Backup & Export */}
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-xs p-space-md sm:p-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-surface-container-low text-primary flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[24px]">archive</span>
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-xs p-space-md sm:p-space-lg flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-surface-container-low text-primary flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">archive</span>
+              </div>
+              <div>
+                <h2 className="font-headline-sm text-sm sm:text-headline-sm text-on-surface font-semibold">
+                  Export Vault Backup (ZIP Archive)
+                </h2>
+                <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+                  Download your entire SQLite database and raw document assets as an offline archive.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-headline-sm text-sm sm:text-headline-sm text-on-surface font-semibold">
-                Export Vault Backup (ZIP Archive)
-              </h2>
-              <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
-                Download your entire SQLite database and raw document assets as an offline archive.
-              </p>
-            </div>
+
+            <button
+              type="button"
+              onClick={handleExportBackup}
+              disabled={isExporting}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-all shadow-xs shrink-0 self-start sm:self-auto ${
+                isExporting
+                  ? 'bg-primary/60 cursor-not-allowed text-on-primary'
+                  : 'bg-primary hover:bg-primary-container text-on-primary active:scale-[0.98]'
+              }`}
+            >
+              {isExporting ? (
+                <>
+                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                  <span>Generating Archive...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">download</span>
+                  <span>Download Backup</span>
+                </>
+              )}
+            </button>
           </div>
 
-          <a
-            href={api.getBackupExportUrl()}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-primary hover:bg-primary-container text-on-primary rounded-xl font-body-sm text-xs sm:text-body-sm font-semibold transition-all shadow-xs shrink-0 self-start sm:self-auto active:scale-[0.98]"
-          >
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            <span>Download Backup</span>
-          </a>
+          {exportSuccess && (
+            <div className="flex items-center gap-2 p-3 text-xs sm:text-sm text-primary bg-primary/10 border border-primary/20 rounded-lg">
+              <span className="material-symbols-outlined text-[18px] shrink-0">check_circle</span>
+              <span className="font-medium">{exportSuccess}</span>
+            </div>
+          )}
+
+          {exportError && (
+            <div className="flex items-center gap-2 p-3 text-xs sm:text-sm text-error bg-error-container/40 border border-error/30 rounded-lg">
+              <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
+              <span className="font-medium">{exportError}</span>
+            </div>
+          )}
         </div>
 
         {/* SECTION 4: Sovereign Wipe Zone (Danger Section) */}

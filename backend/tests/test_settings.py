@@ -18,10 +18,17 @@ def test_settings_endpoints(client):
         },
     )
 
-    # Backup Export
+    # Backup Export (ZIP Archive)
     backup_res = client.get("/api/v1/settings/export-backup")
     assert backup_res.status_code == 200
-    backup_data = backup_res.json()
+    assert backup_res.headers["content-type"] == "application/zip"
+    assert "localledger_backup_" in backup_res.headers.get("content-disposition", "")
+    assert "X-Archive-Filename" in backup_res.headers
+
+    # Legacy JSON export
+    backup_json_res = client.get("/api/v1/settings/export-backup?format=json")
+    assert backup_json_res.status_code == 200
+    backup_data = backup_json_res.json()
     assert len(backup_data["transactions"]) == 1
 
     # Delete all with bad confirm text

@@ -53,6 +53,16 @@ class OllamaServiceError(AppError):
     error_code = "OLLAMA_UNAVAILABLE"
 
 
+class BackupIntegrityError(AppError):
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    error_code = "BACKUP_INTEGRITY_ERROR"
+
+
+class RestoreVerificationError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    error_code = "RESTORE_VERIFICATION_ERROR"
+
+
 def create_error_response(
     status_code: int, error_code: str, message: str, details: Any | None = None
 ) -> JSONResponse:

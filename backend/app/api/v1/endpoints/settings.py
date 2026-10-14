@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,7 @@ from app.models.document import Document
 from app.models.transaction import Transaction
 from app.schemas.settings import DeleteAllDataRequest, SystemStatusResponse
 from app.services.ai.ollama_client import ollama_client
+from app.services.backup.backup_service import backup_service
 from app.services.ocr.ocr_service import ocr_service
 
 router = APIRouter()
@@ -57,44 +58,65 @@ async def trigger_ollama_check():
 
 
 @router.get("/export-backup")
-def export_backup_json(db: Session = Depends(get_db)):
-    """Export all transaction and document metadata as a portable JSON backup."""
-    txs = db.execute(select(Transaction)).scalars().all()
-    docs = db.execute(select(Document)).scalars().all()
+def export_vault_backup(
+    format: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Export full vault backup as a verified ZIP archive containing:
+    - SQLite database snapshot
+    - All receipt and invoice assets
+    - Machine-readable manifest.json with SHA-256 integrity hashes
 
-    return {
-        "export_date": datetime.now(UTC).isoformat(),
-        "transactions": [
-            {
-                "id": t.id,
-                "merchant": t.merchant,
-                "invoice_number": t.invoice_number,
-                "date": t.transaction_date.isoformat(),
-                "subtotal": str(t.subtotal),
-                "tax": str(t.tax),
-                "total": str(t.total),
-                "currency": t.currency,
-                "category": t.category,
-                "payment_method": t.payment_method,
-                "notes": t.notes,
-                "created_at": t.created_at.isoformat(),
-            }
-            for t in txs
-        ],
-        "documents": [
-            {
-                "id": d.id,
-                "transaction_id": d.transaction_id,
-                "original_filename": d.original_filename,
-                "mime_type": d.mime_type,
-                "file_size": d.file_size,
-                "sha256_hash": d.sha256_hash,
-                "processing_status": d.processing_status,
-                "created_at": d.created_at.isoformat(),
-            }
-            for d in docs
-        ],
-    }
+    If format="json" is explicitly requested, returns legacy metadata JSON.
+    """
+    if format == "json":
+        txs = db.execute(select(Transaction)).scalars().all()
+        docs = db.execute(select(Document)).scalars().all()
+
+        return {
+            "export_date": datetime.now(UTC).isoformat(),
+            "transactions": [
+                {
+                    "id": t.id,
+                    "merchant": t.merchant,
+                    "invoice_number": t.invoice_number,
+                    "date": t.transaction_date.isoformat(),
+                    "subtotal": str(t.subtotal),
+                    "tax": str(t.tax),
+                    "total": str(t.total),
+                    "currency": t.currency,
+                    "category": t.category,
+                    "payment_method": t.payment_method,
+                    "notes": t.notes,
+                    "created_at": t.created_at.isoformat(),
+                }
+                for t in txs
+            ],
+            "documents": [
+                {
+                    "id": d.id,
+                    "transaction_id": d.transaction_id,
+                    "original_filename": d.original_filename,
+                    "mime_type": d.mime_type,
+                    "file_size": d.file_size,
+                    "sha256_hash": d.sha256_hash,
+                    "processing_status": d.processing_status,
+                    "created_at": d.created_at.isoformat(),
+                }
+                for d in docs
+            ],
+        }
+
+    zip_bytes, filename = backup_service.generate_zip_backup(db)
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Archive-Filename": filename,
+        },
+    )
 
 
 @router.post("/delete-all")

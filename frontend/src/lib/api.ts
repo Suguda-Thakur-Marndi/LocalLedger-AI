@@ -162,6 +162,47 @@ export const api = {
     return `${API_BASE}/settings/export-backup`
   },
 
+  downloadBackupZip: async (): Promise<{ filename: string; blob: Blob }> => {
+    const url = `${API_BASE}/settings/export-backup`
+    const res = await fetch(url)
+    if (!res.ok) {
+      let errorDetail = `Backup export failed with status ${res.status}`
+      try {
+        const errJson = await res.json()
+        if (errJson.error?.message) {
+          errorDetail = errJson.error.message
+        } else if (errJson.detail) {
+          errorDetail = errJson.detail
+        }
+      } catch {
+        // ignore
+      }
+      throw new Error(errorDetail)
+    }
+
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.includes('application/zip') && !contentType.includes('application/octet-stream')) {
+      throw new Error(`Unexpected server response type: ${contentType}. Expected ZIP archive.`)
+    }
+
+    let filename = res.headers.get('X-Archive-Filename')
+    if (!filename) {
+      const disposition = res.headers.get('Content-Disposition')
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="?([^";]+)"?/)
+        if (match && match[1]) {
+          filename = match[1]
+        }
+      }
+    }
+    if (!filename) {
+      filename = `localledger_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.zip`
+    }
+
+    const blob = await res.blob()
+    return { filename, blob }
+  },
+
   deleteAllData: (confirmText: string): Promise<any> => {
     return request<any>('/settings/delete-all', {
       method: 'POST',

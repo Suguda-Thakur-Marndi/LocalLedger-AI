@@ -513,7 +513,7 @@ Interactive OpenAPI documentation is hosted at `http://127.0.0.1:8000/docs`.
 - `POST /api/v1/settings/check-ollama`
   - Triggers an instant probe of the local Ollama daemon.
 - `GET /api/v1/settings/export-backup`
-  - Exports a complete JSON backup containing all transaction and document metadata.
+  - Exports a verified ZIP archive containing a consistent SQLite database snapshot, all receipt and invoice assets, and a machine-readable `manifest.json` with SHA-256 hashes. Also supports `?format=json` for legacy JSON metadata. See [Disaster Recovery Guide](docs/disaster-recovery.md) for restoration procedures.
 - `POST /api/v1/settings/delete-all`
   - Permanently erases all database tables and uploaded files. Requires payload `{"confirm_text": "DELETE LOCAL DATA"}`.
 
