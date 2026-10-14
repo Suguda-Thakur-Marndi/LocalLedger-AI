@@ -18,6 +18,8 @@ export const AppLayout: React.FC = () => {
     isLocal,
     isConnected,
     isPublicUnconnected,
+    status,
+    savedUrl,
     openCompanionModal,
   } = useCompanion()
 
@@ -128,14 +130,42 @@ export const AppLayout: React.FC = () => {
                 <button
                   type="button"
                   onClick={openCompanionModal}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-caps text-label-caps border bg-surface-container-highest text-tertiary-container border-outline-variant hover:bg-surface-container transition-colors"
-                  title="Running in web preview without connected companion. Click to connect local companion."
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-caps text-label-caps border transition-colors ${
+                    status === 'saved'
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                      : status === 'error'
+                      ? 'bg-error-container text-on-error-container border-error/40 hover:bg-error-container/80'
+                      : 'bg-surface-container-highest text-tertiary-container border-outline-variant hover:bg-surface-container'
+                  }`}
+                  title={
+                    status === 'saved'
+                      ? `Companion endpoint saved (${savedUrl}), but not connected. Click to verify.`
+                      : status === 'error'
+                      ? 'Companion connection failed. Click to inspect and retry.'
+                      : 'Running in web preview without connected companion. Click to connect local companion.'
+                  }
                 >
-                  <span className="material-symbols-outlined text-[14px] text-tertiary">
-                    cloud_off
+                  <span
+                    className={`material-symbols-outlined text-[14px] ${
+                      status === 'saved'
+                        ? 'text-amber-700'
+                        : status === 'error'
+                        ? 'text-error'
+                        : 'text-tertiary'
+                    }`}
+                  >
+                    {status === 'saved' ? 'cloud_queue' : status === 'error' ? 'error' : 'cloud_off'}
                   </span>
-                  <span className="hidden sm:inline">Web Preview · No Companion</span>
-                  <span className="sm:hidden text-[10px]">Preview</span>
+                  <span className="hidden sm:inline">
+                    {status === 'saved'
+                      ? 'Saved Companion · Offline'
+                      : status === 'error'
+                      ? 'Companion Error'
+                      : 'Web Preview · No Companion'}
+                  </span>
+                  <span className="sm:hidden text-[10px]">
+                    {status === 'saved' ? 'Saved' : status === 'error' ? 'Error' : 'Preview'}
+                  </span>
                 </button>
               ) : (
                 <button
@@ -226,7 +256,19 @@ export const AppLayout: React.FC = () => {
                   privacy_tip
                 </span>
                 <span>
-                  <strong>Web Preview Mode:</strong> Receipt processing and database records run 100% locally on your computer.
+                  {status === 'saved' ? (
+                    <>
+                      <strong>Companion Saved (Offline):</strong> An endpoint is saved (<code>{savedUrl}</code>), but not verified in this session. Connect to enable local receipt processing.
+                    </>
+                  ) : status === 'error' ? (
+                    <>
+                      <strong>Companion Connection Notice:</strong> Unable to connect to your local companion. Ensure your local backend is running.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Web Preview Mode:</strong> Receipt processing and database records run 100% locally on your computer.
+                    </>
+                  )}
                 </span>
               </div>
               <button
@@ -234,7 +276,7 @@ export const AppLayout: React.FC = () => {
                 onClick={openCompanionModal}
                 className="inline-flex items-center gap-1 font-semibold text-primary hover:underline shrink-0"
               >
-                <span>Connect Local Companion</span>
+                <span>{status === 'saved' ? 'Verify & Connect' : status === 'error' ? 'Retry Connection' : 'Connect Local Companion'}</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
               </button>
             </div>

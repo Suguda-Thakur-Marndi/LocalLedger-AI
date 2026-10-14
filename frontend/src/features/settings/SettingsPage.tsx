@@ -11,7 +11,9 @@ export const SettingsPage: React.FC = () => {
     isConnected,
     isLocal,
     isPublicUnconnected,
-    runtimeMode,
+    status: companionStatus,
+    savedUrl,
+    connectedUrl,
     companionUrl,
     connectCompanion,
     disconnectCompanion,
@@ -19,7 +21,7 @@ export const SettingsPage: React.FC = () => {
 
   // Companion connection testing form state
   const [companionInputUrl, setCompanionInputUrl] = useState(
-    companionUrl || DEFAULT_LOCAL_API_BASE
+    connectedUrl || savedUrl || DEFAULT_LOCAL_API_BASE
   )
   const [isTestingCompanion, setIsTestingCompanion] = useState(false)
   const [companionFeedback, setCompanionFeedback] = useState<{
@@ -170,26 +172,53 @@ export const SettingsPage: React.FC = () => {
           <div className="flex items-center gap-2 self-start sm:self-auto">
             <span
               className={`font-semibold inline-flex items-center gap-1.5 font-label-caps text-label-caps px-2.5 py-1 rounded-full ${
-                isLocal
+                isLocal || companionStatus === 'connected'
                   ? 'bg-secondary-container text-on-secondary-container'
-                  : runtimeMode === 'companion_connected'
-                  ? 'bg-secondary-container text-on-secondary-container'
+                  : companionStatus === 'connecting'
+                  ? 'bg-primary-container text-on-primary-container'
+                  : companionStatus === 'saved'
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                  : companionStatus === 'error'
+                  ? 'bg-error-container text-on-error-container'
                   : 'bg-tertiary-fixed text-on-tertiary-fixed-variant'
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  isConnected ? 'bg-secondary animate-pulse' : 'bg-tertiary'
+                  isLocal || companionStatus === 'connected'
+                    ? 'bg-secondary animate-pulse'
+                    : companionStatus === 'connecting'
+                    ? 'bg-primary animate-ping'
+                    : companionStatus === 'saved'
+                    ? 'bg-amber-600'
+                    : companionStatus === 'error'
+                    ? 'bg-error'
+                    : 'bg-tertiary'
                 }`}
               />
               {isLocal
                 ? 'Local Machine (Dev)'
-                : runtimeMode === 'companion_connected'
+                : companionStatus === 'connected'
                 ? 'Companion Connected'
+                : companionStatus === 'connecting'
+                ? 'Verifying...'
+                : companionStatus === 'saved'
+                ? 'Saved (Not Connected)'
+                : companionStatus === 'error'
+                ? 'Connection Error'
                 : 'Web Preview (Disconnected)'}
             </span>
           </div>
         </div>
+
+        {companionStatus === 'saved' && (
+          <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+            <span className="material-symbols-outlined text-amber-700 text-[18px] shrink-0">info</span>
+            <span>
+              A companion endpoint is saved in your browser ({savedUrl}), but has not completed a verified health check in this session. Click <strong>Test &amp; Connect</strong> to verify it.
+            </span>
+          </div>
+        )}
 
         <form onSubmit={handleTestAndConnect} className="space-y-3 pt-1">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
@@ -218,7 +247,7 @@ export const SettingsPage: React.FC = () => {
                 <span>{isTestingCompanion ? 'Testing...' : 'Test & Connect'}</span>
               </button>
 
-              {runtimeMode === 'companion_connected' && (
+              {(companionStatus === 'connected' || companionStatus === 'saved' || Boolean(companionUrl)) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -226,9 +255,9 @@ export const SettingsPage: React.FC = () => {
                     setCompanionFeedback(null)
                   }}
                   className="px-3 py-2.5 min-h-[44px] bg-surface-container hover:bg-error-container text-on-surface hover:text-error rounded-xl text-xs font-medium transition-colors"
-                  title="Disconnect companion"
+                  title="Disconnect and forget companion"
                 >
-                  Disconnect
+                  Forget
                 </button>
               )}
             </div>

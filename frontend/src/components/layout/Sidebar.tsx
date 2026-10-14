@@ -20,7 +20,7 @@ const navItems = [
 ]
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMobile, onOpenHelp }) => {
-  const { isConnected, isLocal, runtimeMode, openCompanionModal } = useCompanion()
+  const { isConnected, isLocal, runtimeMode, status, openCompanionModal } = useCompanion()
 
   const { data: health } = useQuery({
     queryKey: ['system-health'],
@@ -77,10 +77,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
             <button
               type="button"
               onClick={openCompanionModal}
-              className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-highest text-tertiary-container hover:bg-surface-container transition-colors text-label-caps font-label-caps text-left"
+              className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded transition-colors text-label-caps font-label-caps text-left ${
+                status === 'saved'
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
+                  : status === 'error'
+                  ? 'bg-error-container text-on-error-container hover:bg-error-container/80'
+                  : 'bg-surface-container-highest text-tertiary-container hover:bg-surface-container'
+              }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
-              <span className="truncate">Web Preview · Connect Companion</span>
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  status === 'saved' ? 'bg-amber-600' : status === 'error' ? 'bg-error' : 'bg-tertiary'
+                }`}
+              />
+              <span className="truncate">
+                {status === 'saved'
+                  ? 'Saved Companion · Offline'
+                  : status === 'error'
+                  ? 'Companion Error · Retry'
+                  : 'Web Preview · Connect Companion'}
+              </span>
             </button>
           )}
         </div>
@@ -195,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
                 Alex Rivera
               </span>
               <span className="font-label-caps text-label-caps text-on-surface-variant leading-tight truncate">
-                {isLocal ? 'Local Vault' : runtimeMode === 'companion_connected' ? 'Connected Companion' : 'Web Preview'}
+                {isLocal ? 'Local Vault' : status === 'connected' ? 'Connected Companion' : status === 'saved' ? 'Saved (Offline)' : 'Web Preview'}
               </span>
             </div>
           </div>

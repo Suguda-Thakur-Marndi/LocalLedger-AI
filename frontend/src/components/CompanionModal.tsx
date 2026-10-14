@@ -6,20 +6,24 @@ export const CompanionModal: React.FC = () => {
   const {
     companionModalOpen,
     closeCompanionModal,
-    runtimeMode,
+    status,
+    savedUrl,
+    connectedUrl,
     companionUrl,
     connectCompanion,
     disconnectCompanion,
     isLocal,
   } = useCompanion()
 
-  const [inputUrl, setInputUrl] = useState(companionUrl || DEFAULT_LOCAL_API_BASE)
+  const [inputUrl, setInputUrl] = useState(connectedUrl || savedUrl || DEFAULT_LOCAL_API_BASE)
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<{
     success: boolean
     message: string
     errorType?: string
   } | null>(null)
+
+
 
   if (!companionModalOpen) return null
 
@@ -93,30 +97,56 @@ export const CompanionModal: React.FC = () => {
 
         {/* Current Connection Status */}
         <div className="p-3 rounded-xl bg-surface-container-low/60 flex items-center justify-between text-xs sm:text-sm">
-          <span className="text-on-surface-variant">Current Environment:</span>
+          <span className="text-on-surface-variant">Connection Status:</span>
           <span
             className={`font-semibold inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-label-caps ${
-              isLocal
+              isLocal || status === 'connected'
                 ? 'bg-secondary-container text-on-secondary-container'
-                : runtimeMode === 'companion_connected'
-                ? 'bg-secondary-container text-on-secondary-container'
+                : status === 'connecting'
+                ? 'bg-primary-container text-on-primary-container'
+                : status === 'saved'
+                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                : status === 'error'
+                ? 'bg-error-container text-on-error-container'
                 : 'bg-tertiary-fixed text-on-tertiary-fixed-variant'
             }`}
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                isLocal || runtimeMode === 'companion_connected'
+                isLocal || status === 'connected'
                   ? 'bg-secondary animate-pulse'
+                  : status === 'connecting'
+                  ? 'bg-primary animate-ping'
+                  : status === 'saved'
+                  ? 'bg-amber-600'
+                  : status === 'error'
+                  ? 'bg-error'
                   : 'bg-tertiary'
               }`}
             />
             {isLocal
               ? 'Local Machine (Development)'
-              : runtimeMode === 'companion_connected'
+              : status === 'connected'
               ? 'Companion Connected'
+              : status === 'connecting'
+              ? 'Verifying Connection...'
+              : status === 'saved'
+              ? 'Saved URL (Not Connected)'
+              : status === 'error'
+              ? 'Connection Failed'
               : 'Web Preview (Disconnected)'}
           </span>
         </div>
+
+        {/* Saved status notification */}
+        {status === 'saved' && (
+          <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+            <span className="material-symbols-outlined text-amber-700 text-[18px] shrink-0">info</span>
+            <span>
+              A companion URL is saved in your browser ({savedUrl}), but has not completed a live health check in this session. Click <strong>Test &amp; Connect</strong> to verify it.
+            </span>
+          </div>
+        )}
 
         {/* Connection Form */}
         <form onSubmit={handleConnect} className="space-y-3">
@@ -165,14 +195,22 @@ export const CompanionModal: React.FC = () => {
               {testResult.errorType === 'mixed_content' && (
                 <div className="pt-1 text-[11px] text-on-surface-variant bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/30 space-y-1">
                   <span className="font-semibold text-on-surface block">
-                    Why does this happen?
+                    Browser Mixed Content &amp; Security Boundary:
                   </span>
                   <p>
-                    Browsers enforce strict Mixed Content / Private Network security. An HTTPS website cannot send unencrypted network packets to a local HTTP service.
+                    Modern browsers prohibit public HTTPS sites from fetching insecure plaintext HTTP endpoints on <code>localhost</code> (Mixed Content).
                   </p>
-                  <p className="font-medium text-primary">
-                    Recommended: Run the LocalLedger web interface locally via <code className="font-mono">npm run dev</code> or open using the local desktop URL.
+                  <p className="font-medium text-on-surface pt-1">
+                    Recommended Secure Approaches:
                   </p>
+                  <ul className="list-disc list-inside space-y-0.5 text-on-surface-variant">
+                    <li>
+                      <strong>Direct Local Use (Recommended):</strong> Clone the repository and run both frontend and backend locally (e.g. <code>http://localhost:5173</code>) where no cross-origin Mixed Content barriers exist.
+                    </li>
+                    <li>
+                      <strong>HTTPS Local Reverse Proxy:</strong> Wrap your local companion with an HTTPS proxy (e.g. Caddy or mkcert with a trusted local certificate) and configure backend <code>ALLOWED_ORIGINS</code>.
+                    </li>
+                  </ul>
                 </div>
               )}
             </div>
@@ -180,13 +218,13 @@ export const CompanionModal: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-2">
-            {runtimeMode === 'companion_connected' ? (
+            {status === 'connected' || status === 'saved' || Boolean(companionUrl) ? (
               <button
                 type="button"
                 onClick={handleDisconnect}
                 className="px-3 py-2 text-xs text-error hover:bg-error-container/40 rounded-lg font-medium transition-colors min-h-[40px]"
               >
-                Disconnect Companion
+                Forget / Disconnect
               </button>
             ) : (
               <div />

@@ -95,18 +95,16 @@ export async function testCompanionConnection(candidateUrl: string): Promise<Con
     }
   }
 
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 6000)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 6000)
 
+  try {
     const healthUrl = `${normalized}/health`
     const res = await fetch(healthUrl, {
       method: 'GET',
       headers: { Accept: 'application/json' },
       signal: controller.signal,
     })
-
-    clearTimeout(timeoutId)
 
     if (!res.ok) {
       return {
@@ -146,6 +144,8 @@ export async function testCompanionConnection(candidateUrl: string): Promise<Con
       errorType: 'cors_network',
       error: errorMsg,
     }
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
