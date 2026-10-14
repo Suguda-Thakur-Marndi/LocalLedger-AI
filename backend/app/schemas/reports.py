@@ -20,6 +20,15 @@ class MonthlySpendTrend(BaseModel):
     transaction_count: int
 
 
+class WeeklySpendTrend(BaseModel):
+    week: str  # YYYY-Www, e.g. "2019-W01"
+    week_start: str  # YYYY-MM-DD
+    week_label: str  # e.g. "W01 (Dec 31)"
+    currency: str
+    total_amount: Decimal
+    transaction_count: int
+
+
 class CurrencyTotal(BaseModel):
     currency: str
     total_amount: Decimal
@@ -33,4 +42,6 @@ class DashboardSummary(BaseModel):
     total_receipts: int
     categories: list[SpendingByCategory]
     monthly_trends: list[MonthlySpendTrend]
+    weekly_trends: list[WeeklySpendTrend] = []
+    available_years: list[int] = []
     recent_transactions: list[TransactionResponse]

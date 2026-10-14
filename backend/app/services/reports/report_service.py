@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import desc, func, select
@@ -13,6 +13,7 @@ from app.schemas.reports import (
     DashboardSummary,
     MonthlySpendTrend,
     SpendingByCategory,
+    WeeklySpendTrend,
 )
 from app.schemas.transaction import TransactionResponse
 
@@ -106,6 +107,41 @@ class ReportService:
             for (month_str, curr), val in sorted(month_map.items())
         ]
 
+        # Weekly trends
+        week_map = {}
+        for tx in transactions:
+            if not tx.transaction_date:
+                continue
+            iso_year, iso_week, _ = tx.transaction_date.isocalendar()
+            week_str = f"{iso_year}-W{iso_week:02d}"
+            week_start = tx.transaction_date - timedelta(days=tx.transaction_date.weekday())
+            key = (week_str, tx.currency)
+            if key not in week_map:
+                week_map[key] = {
+                    "total": Decimal("0.00"),
+                    "count": 0,
+                    "week_start": week_start.strftime("%Y-%m-%d"),
+                    "week_label": f"W{iso_week:02d} ({week_start.strftime('%b %d')})",
+                }
+            week_map[key]["total"] += tx.total
+            week_map[key]["count"] += 1
+
+        weekly_trends = [
+            WeeklySpendTrend(
+                week=week_str,
+                week_start=val["week_start"],
+                week_label=val["week_label"],
+                currency=curr,
+                total_amount=val["total"],
+                transaction_count=val["count"],
+            )
+            for (week_str, curr), val in sorted(week_map.items())
+        ]
+
+        # Available transaction years across entire database
+        all_tx_dates = db.execute(select(Transaction.transaction_date)).scalars().all()
+        available_years = sorted(list({d.year for d in all_tx_dates if d}), reverse=True)
+
         # Recent transactions (up to 5)
         recent_txs = list(
             db.execute(select(Transaction).order_by(desc(Transaction.created_at)).limit(5))
@@ -120,6 +156,8 @@ class ReportService:
             total_receipts=doc_count,
             categories=categories,
             monthly_trends=monthly_trends,
+            weekly_trends=weekly_trends,
+            available_years=available_years,
             recent_transactions=recent_responses,
         )
 

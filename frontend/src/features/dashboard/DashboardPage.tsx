@@ -1,20 +1,12 @@
 import React, { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from 'recharts'
 import { api } from '../../lib/api'
 import { formatCurrency, formatDate, formatBytes } from '../../lib/utils'
 import { StatCard } from '../../components/ui/StatCard'
+import { MonthlyExpenseTrendChart } from './components/MonthlyExpenseTrendChart'
 
-function getPeriodRange(period: 'month' | '30d' | 'year' | 'all') {
+function getPeriodRange(period: string) {
   const now = new Date()
   if (period === 'month') {
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -42,29 +34,44 @@ function getPeriodRange(period: 'month' | '30d' | 'year' | 'all') {
       label: `Year to Date (${now.getFullYear()})`,
     }
   }
+  if (/^\d{4}$/.test(period)) {
+    return {
+      start: `${period}-01-01`,
+      end: `${period}-12-31`,
+      label: `Year ${period}`,
+    }
+  }
   return { start: undefined, end: undefined, label: 'All Time' }
 }
 
 const CURRENT_MONTH_LABEL = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-const CURRENT_YEAR = new Date().getFullYear()
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [period, setPeriod] = useState<'month' | '30d' | 'year' | 'all'>('month')
+  const [period, setPeriod] = useState<string>('all')
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false)
 
   const currentMonthLabel = CURRENT_MONTH_LABEL
-  const currentYear = CURRENT_YEAR
 
   // Compute dates based on period
   const { start, end, label: periodLabel } = getPeriodRange(period)
 
   // Real backend summary
-  const { data: summary, isLoading, error } = useQuery({
+  const { data: summary, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard-summary', start, end],
     queryFn: () => api.getDashboardSummary(start, end),
   })
+
+  const availableYears = summary?.available_years ?? []
+  const initialYear = availableYears.length > 0
+    ? availableYears[0]
+    : summary?.monthly_trends?.[0]?.month
+    ? summary.monthly_trends[0].month.split('-')[0]
+    : 2019
+
+  const [userSelectedYear, setUserSelectedYear] = useState<number | string | null>(null)
+  const activeChartYear = userSelectedYear !== null ? userSelectedYear : initialYear
 
   // Real system health and status
   const { data: status } = useQuery({
@@ -131,7 +138,6 @@ export const DashboardPage: React.FC = () => {
   const totalTransactions = summary?.total_transactions ?? 0
   const categories = summary?.categories || []
   const recentTransactions = summary?.recent_transactions || []
-  const monthlyTrends = summary?.monthly_trends || []
 
   // Helper to map category name to Stitch Material Symbols
   const getCategoryIcon = (cat: string) => {
@@ -343,145 +349,20 @@ export const DashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-space-lg items-start">
           {/* Left Column (8-col wide) */}
           <div className="lg:col-span-8 flex flex-col gap-4 sm:gap-space-lg">
-            {/* Chart Card */}
-            <div className="bg-surface-container-lowest rounded-xl p-3 sm:p-space-lg shadow-sm border border-outline-variant/30 flex flex-col gap-3 sm:gap-space-md">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
-                <div className="flex flex-col">
-                  <span className="font-headline-md text-base sm:text-headline-md text-on-surface font-semibold">
-                    Monthly Expense Trend ({currentYear})
-                  </span>
-                  <span className="font-body-sm text-xs text-on-surface-variant">
-                    Historical trailing local ledger vs $5,000 baseline budget
-                  </span>
-                </div>
-                <div className="flex items-center bg-surface-container-low p-0.5 sm:p-1 rounded-lg self-start sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setPeriod('30d')}
-                    className={`px-2 sm:px-2.5 py-1 rounded text-xs font-label-caps transition-colors ${
-                      period === '30d'
-                        ? 'bg-surface-container-lowest text-primary shadow-xs font-semibold'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPeriod('month')}
-                    className={`px-2 sm:px-2.5 py-1 rounded text-xs font-label-caps transition-colors ${
-                      period === 'month'
-                        ? 'bg-surface-container-lowest text-primary shadow-xs font-semibold'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPeriod('year')}
-                    className={`px-2 sm:px-2.5 py-1 rounded text-xs font-label-caps transition-colors ${
-                      period === 'year'
-                        ? 'bg-surface-container-lowest text-primary shadow-xs font-semibold'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    Cumulative
-                  </button>
-                </div>
-              </div>
-
-              {/* Area Chart rendered with Recharts */}
-              <div className="relative w-full h-52 sm:h-64 select-none">
-                {monthlyTrends.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={monthlyTrends}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="spendingGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#00603c" stopOpacity={0.25} />
-                          <stop offset="90%" stopColor="#00603c" stopOpacity={0.0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis
-                        dataKey="month"
-                        stroke="#6f7a71"
-                        fontSize={10}
-                        tickLine={false}
-                        axisLine={{ stroke: '#bec9c0' }}
-                      />
-                      <YAxis
-                        stroke="#6f7a71"
-                        fontSize={10}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(v) => `$${v}`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#161d16',
-                          border: 'none',
-                          borderRadius: '6px',
-                          color: '#ffffff',
-                          fontFamily: 'Inter',
-                          fontSize: '11px',
-                          padding: '6px 10px',
-                        }}
-                        formatter={(val: any) => [formatCurrency(val, primaryCurrency), 'Expense']}
-                      />
-                      <ReferenceLine
-                        y={5000}
-                        stroke="#a45800"
-                        strokeDasharray="4 4"
-                        label={{
-                          value: '$5K Target',
-                          position: 'top',
-                          fill: '#814400',
-                          fontSize: 9,
-                          fontWeight: 600,
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="total_amount"
-                        stroke="#00603c"
-                        strokeWidth={2.5}
-                        fill="url(#spendingGradient)"
-                        dot={{ r: 4, fill: '#00603c' }}
-                        activeDot={{ r: 5.5, fill: '#00603c', stroke: '#f3fcef', strokeWidth: 2 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-on-surface-variant gap-2 bg-surface-container-low/50 rounded-lg p-4 text-center">
-                    <span className="material-symbols-outlined text-[28px] text-outline">show_chart</span>
-                    <span className="font-body-sm text-xs sm:text-body-sm">
-                      Upload receipts to populate monthly trend trajectory.
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Chart Legend Footer */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-on-surface-variant font-label-caps text-[10px] sm:text-label-caps border-t border-surface-container-low">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-0.5 bg-primary" /> Actual Expenses
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-0.5 bg-tertiary-container border-b border-dashed border-tertiary-container" />{' '}
-                    Target ($5,000)
-                  </span>
-                </div>
-                <span className="text-primary font-medium">
-                  {Number(totalAmount) > 0
-                    ? `${Math.min(100, Math.round((Number(totalAmount) / 5000) * 100))}% Utilized`
-                    : '100% Available'}
-                </span>
-              </div>
-            </div>
+            {/* Redesigned Monthly Expense Trend Component */}
+            <MonthlyExpenseTrendChart
+              selectedYear={activeChartYear}
+              onYearChange={(y) => setUserSelectedYear(y)}
+              availableYears={availableYears}
+              totalTransactionsAllTime={summary?.total_transactions ?? 0}
+              monthlyTrends={summary?.monthly_trends ?? []}
+              weeklyTrends={summary?.weekly_trends ?? []}
+              currencyTotals={summary?.currency_totals ?? []}
+              isLoading={isLoading}
+              isError={!!error}
+              onRetry={() => refetch()}
+              monthlyBudget={5000}
+            />
 
             {/* Recent Transactions: Desktop Table + Mobile Card Feed */}
             <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 overflow-hidden flex flex-col">

@@ -34,6 +34,11 @@ def test_dashboard_and_reports(client):
     assert currencies["USD"] == "100.00"
     assert currencies["EUR"] == "50.00"
 
+    # Verify available years and weekly trends
+    assert 2026 in data["available_years"]
+    assert len(data["weekly_trends"]) >= 1
+    assert data["weekly_trends"][0]["week"].startswith("2026-W")
+
     # CSV Export
     csv_res = client.get("/api/v1/reports/export")
     assert csv_res.status_code == 200

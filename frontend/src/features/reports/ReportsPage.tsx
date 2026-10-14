@@ -1,21 +1,14 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
 import { api } from '../../lib/api'
 import { formatCurrency } from '../../lib/utils'
+import { MonthlyExpenditureChart } from './components/MonthlyExpenditureChart'
 
 export const ReportsPage: React.FC = () => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
-  const { data: summary, isLoading } = useQuery({
+  const { data: summary, isLoading, isError, refetch } = useQuery({
     queryKey: ['reports-summary', startDate, endDate],
     queryFn: () => api.getDashboardSummary(startDate || undefined, endDate || undefined),
   })
@@ -130,61 +123,14 @@ export const ReportsPage: React.FC = () => {
       {/* Analytics Charts & Breakdowns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-md lg:gap-space-lg items-start">
         {/* Monthly Bar Chart (8-col on lg, full-width on mobile) */}
-        <div className="lg:col-span-8 bg-surface-container-lowest rounded-xl p-space-md sm:p-space-lg shadow-xs border border-outline-variant/30 flex flex-col gap-space-md">
-          <div>
-            <h2 className="font-headline-md text-base sm:text-headline-md text-on-surface font-semibold">
-              Monthly Expenditure Volume
-            </h2>
-            <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
-              Aggregated monthly totals by calendar period
-            </p>
-          </div>
-
-          <div className="h-60 sm:h-72 w-full">
-            {summary && summary.monthly_trends.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={summary.monthly_trends}
-                  margin={{ top: 15, right: 10, left: -20, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="month"
-                    stroke="#6f7a71"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={{ stroke: '#bec9c0' }}
-                  />
-                  <YAxis
-                    stroke="#6f7a71"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => `$${v}`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#161d16',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#ffffff',
-                      fontFamily: 'Inter',
-                      fontSize: '11px',
-                    }}
-                    formatter={(val: any, _name: any, item: any) => [
-                      formatCurrency(val, item.payload.currency),
-                      'Total Spend',
-                    ]}
-                  />
-                  <Bar dataKey="total_amount" fill="#00603c" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-xs text-on-surface-variant">
-                No monthly data points available for this period.
-              </div>
-            )}
-          </div>
-        </div>
+        <MonthlyExpenditureChart
+          className="lg:col-span-8"
+          monthlyTrends={summary?.monthly_trends}
+          currencyTotals={summary?.currency_totals}
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={() => refetch()}
+        />
 
         {/* Category Breakdown (4-col on lg, full-width on mobile) */}
         <div className="lg:col-span-4 bg-surface-container-lowest rounded-xl p-space-md sm:p-space-lg shadow-xs border border-outline-variant/30 flex flex-col gap-space-md">

@@ -105,6 +105,15 @@ export interface MonthlySpendTrend {
   transaction_count: number
 }
 
+export interface WeeklySpendTrend {
+  week: string
+  week_start: string
+  week_label: string
+  currency: string
+  total_amount: string | number
+  transaction_count: number
+}
+
 export interface CurrencyTotal {
   currency: string
   total_amount: string | number
@@ -118,6 +127,8 @@ export interface DashboardSummary {
   total_receipts: number
   categories: SpendingByCategory[]
   monthly_trends: MonthlySpendTrend[]
+  weekly_trends?: WeeklySpendTrend[]
+  available_years?: number[]
   recent_transactions: Transaction[]
 }
 
