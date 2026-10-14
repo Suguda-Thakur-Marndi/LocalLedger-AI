@@ -140,7 +140,7 @@ class ReportService:
 
         # Available transaction years across entire database
         all_tx_dates = db.execute(select(Transaction.transaction_date)).scalars().all()
-        available_years = sorted(list({d.year for d in all_tx_dates if d}), reverse=True)
+        available_years = sorted({d.year for d in all_tx_dates if d}, reverse=True)
 
         # Recent transactions (up to 5)
         recent_txs = list(

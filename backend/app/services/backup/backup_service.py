@@ -460,7 +460,13 @@ class BackupService:
             for item in zf.infolist():
                 name = item.filename
                 # Prevent path traversal (Zip Slip vulnerability)
-                if ".." in name or name.startswith("/") or name.startswith("\\"):
+                is_drive_path = len(name) >= 2 and name[0].isalpha() and name[1] == ":"
+                if (
+                    ".." in name
+                    or name.startswith(("/", "\\"))
+                    or is_drive_path
+                    or Path(name).is_absolute()
+                ):
                     raise RestoreVerificationError(
                         f"Unsafe path detected in restore archive: {name!r}"
                     )
@@ -475,7 +481,7 @@ class BackupService:
                     continue
 
                 target_file = (staging_resolved / rel_name).resolve()
-                if not str(target_file).startswith(str(staging_resolved)):
+                if not target_file.is_relative_to(staging_resolved) or not str(target_file).startswith(str(staging_resolved)):
                     raise RestoreVerificationError(
                         f"Zip traversal attempt detected: {target_file}"
                     )

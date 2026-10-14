@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import type { ConfirmReceiptRequest } from '../../types'
+import type { ConfirmReceiptRequest, ReceiptReviewPayload } from '../../types'
 
 const CATEGORIES = [
   'Software & Subscriptions',
@@ -44,31 +44,7 @@ export const ReceiptReviewPage: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-
-  // Inspection Canvas & Mobile Accordion Controls
-  const [zoom, setZoom] = useState<number>(100)
-  const [rotation, setRotation] = useState<number>(0)
-  const [showBBoxes, setShowBBoxes] = useState<boolean>(true)
-  const [rawOcrOpen, setRawOcrOpen] = useState<boolean>(false)
-  const [isDocPreviewExpanded, setIsDocPreviewExpanded] = useState<boolean>(false)
-  const [isFullscreenModalOpen, setIsFullscreenModalOpen] = useState<boolean>(false)
-
-  // Form Fields (nullable / unpopulated by default to prevent fake values)
-  const [merchant, setMerchant] = useState('')
-  const [invoiceNumber, setInvoiceNumber] = useState('')
-  const [transactionDate, setTransactionDate] = useState('')
-  const [currency, setCurrency] = useState('')
-  const [subtotal, setSubtotal] = useState<string>('')
-  const [tax, setTax] = useState<string>('')
-  const [tip, setTip] = useState<string>('0.00')
-  const [total, setTotal] = useState<string>('')
-  const [category, setCategory] = useState('Equipment')
-  const [paymentMethod, setPaymentMethod] = useState('')
-  const [taxTreatment, setTaxTreatment] = useState<'100' | 'split' | 'personal'>('100')
-  const [notes, setNotes] = useState('')
-
-  // Validation errors
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({})
+  const [reextractKey, setReextractKey] = useState(0)
 
   // If no documentId was provided in the route, fetch pending documents
   const { data: pendingQueue } = useQuery({
@@ -93,110 +69,9 @@ export const ReceiptReviewPage: React.FC = () => {
     mutationFn: () => api.reextractDocument(documentId!),
     onSuccess: (updatedData) => {
       queryClient.setQueryData(['receipt-review', documentId], updatedData)
+      setReextractKey((prev) => prev + 1)
     },
   })
-
-  // Auto-populate form from extracted review data
-  useEffect(() => {
-    if (reviewData) {
-      const ext = reviewData.extracted
-      setMerchant(ext.merchant || '')
-      setInvoiceNumber(ext.invoice_number || '')
-      setTransactionDate(
-        ext.transaction_date ? String(ext.transaction_date) : ''
-      )
-      setCurrency(ext.currency || '')
-      setSubtotal(ext.subtotal !== null && ext.subtotal !== undefined ? String(ext.subtotal) : '')
-      setTax(ext.tax !== null && ext.tax !== undefined ? String(ext.tax) : '')
-      setTotal(ext.total !== null && ext.total !== undefined ? String(ext.total) : '')
-      setCategory(ext.category || 'Equipment')
-      setPaymentMethod(ext.payment_method || '')
-      setNotes(ext.notes || '')
-    }
-  }, [reviewData])
-
-  // Real-time mathematical reconciliation
-  const numSubtotal = parseFloat(subtotal) || 0
-  const numTax = parseFloat(tax) || 0
-  const numTip = parseFloat(tip) || 0
-  const numTotal = parseFloat(total) || 0
-  const calculatedSum = Math.round((numSubtotal + numTax + numTip) * 100) / 100
-  const isBalanced = Boolean(total && Math.abs(calculatedSum - numTotal) < 0.05)
-
-  // Confirm receipt mutation
-  const confirmMutation = useMutation({
-    mutationFn: (payload: ConfirmReceiptRequest) => api.confirmReceipt(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['pending-review-transactions'] })
-      navigate('/transactions')
-    },
-  })
-
-  const validateForm = useCallback(() => {
-    const errors: { [key: string]: string } = {}
-    if (!merchant.trim()) {
-      errors.merchant = 'Merchant name is required'
-    }
-    if (!transactionDate) {
-      errors.transactionDate = 'Transaction date is required (YYYY-MM-DD)'
-    }
-    if (!currency) {
-      errors.currency = 'Currency is required'
-    }
-    if (isNaN(numTotal) || numTotal <= 0) {
-      errors.total = 'Please specify a valid total amount greater than 0'
-    }
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }, [merchant, transactionDate, currency, numTotal])
-
-  const handleSave = useCallback(() => {
-    if (!documentId) return
-    if (!validateForm()) return
-
-    const payload: ConfirmReceiptRequest = {
-      document_id: documentId,
-      merchant: merchant.trim(),
-      invoice_number: invoiceNumber.trim() || null,
-      transaction_date: transactionDate,
-      subtotal: parseFloat(subtotal) || 0,
-      tax: parseFloat(tax) || 0,
-      total: parseFloat(total) || 0,
-      currency: (currency || 'USD').toUpperCase(),
-      category: category || 'Other',
-      payment_method: paymentMethod.trim() || null,
-      notes: notes.trim() || null,
-    }
-    confirmMutation.mutate(payload)
-  }, [
-    documentId,
-    validateForm,
-    merchant,
-    invoiceNumber,
-    transactionDate,
-    subtotal,
-    tax,
-    total,
-    currency,
-    category,
-    paymentMethod,
-    notes,
-    confirmMutation,
-  ])
-
-  // Keyboard shortcut: ⌘↵ / Ctrl+Enter
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault()
-        handleSave()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSave])
 
   // If no documentId is passed, render the review queue selector
   if (!documentId) {
@@ -320,6 +195,151 @@ export const ReceiptReviewPage: React.FC = () => {
     )
   }
 
+  return (
+    <ReceiptReviewWorkspace
+      key={`${documentId}-${reextractKey}`}
+      documentId={documentId}
+      reviewData={reviewData}
+      onReextract={() => reextractMutation.mutate()}
+      isReextracting={reextractMutation.isPending}
+    />
+  )
+}
+
+export interface ReceiptReviewWorkspaceProps {
+  documentId: string
+  reviewData: ReceiptReviewPayload
+  onReextract: () => void
+  isReextracting: boolean
+}
+
+export const ReceiptReviewWorkspace: React.FC<ReceiptReviewWorkspaceProps> = ({
+  documentId,
+  reviewData,
+  onReextract,
+  isReextracting,
+}) => {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  // Inspection Canvas & Mobile Accordion Controls
+  const [zoom, setZoom] = useState<number>(100)
+  const [rotation, setRotation] = useState<number>(0)
+  const [showBBoxes, setShowBBoxes] = useState<boolean>(true)
+  const [rawOcrOpen, setRawOcrOpen] = useState<boolean>(false)
+  const [isDocPreviewExpanded, setIsDocPreviewExpanded] = useState<boolean>(false)
+  const [isFullscreenModalOpen, setIsFullscreenModalOpen] = useState<boolean>(false)
+
+  const ext = reviewData.extracted
+
+  // Form Fields initialized directly from extracted review data
+  const [merchant, setMerchant] = useState(ext.merchant || '')
+  const [invoiceNumber, setInvoiceNumber] = useState(ext.invoice_number || '')
+  const [transactionDate, setTransactionDate] = useState(
+    ext.transaction_date ? String(ext.transaction_date) : ''
+  )
+  const [currency, setCurrency] = useState(ext.currency || '')
+  const [subtotal, setSubtotal] = useState<string>(
+    ext.subtotal !== null && ext.subtotal !== undefined ? String(ext.subtotal) : ''
+  )
+  const [tax, setTax] = useState<string>(
+    ext.tax !== null && ext.tax !== undefined ? String(ext.tax) : ''
+  )
+  const [tip, setTip] = useState<string>('0.00')
+  const [total, setTotal] = useState<string>(
+    ext.total !== null && ext.total !== undefined ? String(ext.total) : ''
+  )
+  const [category, setCategory] = useState(ext.category || 'Equipment')
+  const [paymentMethod, setPaymentMethod] = useState(ext.payment_method || '')
+  const [taxTreatment, setTaxTreatment] = useState<'100' | 'split' | 'personal'>('100')
+  const [notes, setNotes] = useState(ext.notes || '')
+
+  // Validation errors
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({})
+
+  // Real-time mathematical reconciliation
+  const numSubtotal = parseFloat(subtotal) || 0
+  const numTax = parseFloat(tax) || 0
+  const numTip = parseFloat(tip) || 0
+  const numTotal = parseFloat(total) || 0
+  const calculatedSum = Math.round((numSubtotal + numTax + numTip) * 100) / 100
+  const isBalanced = Boolean(total && Math.abs(calculatedSum - numTotal) < 0.05)
+
+  // Confirm receipt mutation
+  const confirmMutation = useMutation({
+    mutationFn: (payload: ConfirmReceiptRequest) => api.confirmReceipt(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['pending-review-transactions'] })
+      navigate('/transactions')
+    },
+  })
+
+  const validateForm = useCallback(() => {
+    const errors: { [key: string]: string } = {}
+    if (!merchant.trim()) {
+      errors.merchant = 'Merchant name is required'
+    }
+    if (!transactionDate) {
+      errors.transactionDate = 'Transaction date is required (YYYY-MM-DD)'
+    }
+    if (!currency) {
+      errors.currency = 'Currency is required'
+    }
+    if (isNaN(numTotal) || numTotal <= 0) {
+      errors.total = 'Please specify a valid total amount greater than 0'
+    }
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }, [merchant, transactionDate, currency, numTotal])
+
+  const handleSave = useCallback(() => {
+    if (!documentId) return
+    if (!validateForm()) return
+
+    const payload: ConfirmReceiptRequest = {
+      document_id: documentId,
+      merchant: merchant.trim(),
+      invoice_number: invoiceNumber.trim() || null,
+      transaction_date: transactionDate,
+      subtotal: parseFloat(subtotal) || 0,
+      tax: parseFloat(tax) || 0,
+      total: parseFloat(total) || 0,
+      currency: (currency || 'USD').toUpperCase(),
+      category: category || 'Other',
+      payment_method: paymentMethod.trim() || null,
+      notes: notes.trim() || null,
+    }
+    confirmMutation.mutate(payload)
+  }, [
+    documentId,
+    validateForm,
+    merchant,
+    invoiceNumber,
+    transactionDate,
+    subtotal,
+    tax,
+    total,
+    currency,
+    category,
+    paymentMethod,
+    notes,
+    confirmMutation,
+  ])
+
+  // Keyboard shortcut: ⌘↵ / Ctrl+Enter
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault()
+        handleSave()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSave])
+
   const fileUrl = api.getDocumentFileUrl(documentId)
   const isPdf = reviewData.mime_type === 'application/pdf'
 
@@ -356,15 +376,15 @@ export const ReceiptReviewPage: React.FC = () => {
           <div className="flex items-center justify-between w-full lg:w-auto gap-2">
             <button
               type="button"
-              onClick={() => reextractMutation.mutate()}
-              disabled={reextractMutation.isPending}
+              onClick={onReextract}
+              disabled={isReextracting}
               className="inline-flex items-center gap-1 px-3 py-2 min-h-[40px] rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-xs sm:text-body-sm transition-all shadow-xs"
               title="Re-run local OCR and AI extraction on this document"
             >
-              <span className={`material-symbols-outlined text-[18px] ${reextractMutation.isPending ? 'animate-spin' : ''}`}>
+              <span className={`material-symbols-outlined text-[18px] ${isReextracting ? 'animate-spin' : ''}`}>
                 refresh
               </span>
-              <span>{reextractMutation.isPending ? 'Re-extracting...' : 'Retry Extraction'}</span>
+              <span>{isReextracting ? 'Re-extracting...' : 'Retry Extraction'}</span>
             </button>
 
             <button

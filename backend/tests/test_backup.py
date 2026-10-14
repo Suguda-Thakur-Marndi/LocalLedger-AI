@@ -28,10 +28,8 @@ from fastapi.testclient import TestClient
 from app.core.config import settings
 from app.services.backup.backup_service import (
     MANIFEST_SCHEMA_VERSION,
-    BackupService,
     backup_service,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -201,7 +199,7 @@ def test_backup_fails_when_asset_missing(client, sample_pdf_bytes):
     endpoint must return HTTP 500 (BackupIntegrityError) rather than silently
     producing an incomplete archive.
     """
-    doc_id = _upload_pdf(client, sample_pdf_bytes)
+    _upload_pdf(client, sample_pdf_bytes)
 
     # Simulate missing asset: delete every uploaded file from disk
     upload_dir = settings.resolved_upload_dir
@@ -413,8 +411,20 @@ def test_restore_to_staging_directory(client, sample_pdf_bytes, tmp_path):
 # Test 13: Restore staging rejects path traversal attempts (Zip Slip)
 # ---------------------------------------------------------------------------
 
-def test_restore_staging_rejects_path_traversal(tmp_path):
-    """Archives with traversal paths like ../evil.txt must be rejected."""
+@pytest.mark.parametrize(
+    "unsafe_entry",
+    [
+        "../traversal.txt",
+        "localledger_backup_20260101_000000/../traversal.txt",
+        "/etc/shadow",
+        "\\windows\\system32.dll",
+        "C:/windows/system32.dll",
+        "D:\\malicious.exe",
+        "C:drive_relative.txt",
+    ],
+)
+def test_restore_staging_rejects_path_traversal(tmp_path, unsafe_entry):
+    """Archives with traversal, absolute, or drive paths must be rejected."""
     from app.core.errors import RestoreVerificationError
 
     prefix = "localledger_backup_20260101_000000"
@@ -442,7 +452,7 @@ def test_restore_staging_rejects_path_traversal(tmp_path):
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr(f"{prefix}/manifest.json", json.dumps(manifest))
         zf.writestr(f"{prefix}/database/localledger.db", db_bytes)
-        zf.writestr(f"{prefix}/../traversal.txt", b"malicious content")
+        zf.writestr(unsafe_entry, b"malicious content")
 
     with pytest.raises(RestoreVerificationError, match="Unsafe path detected"):
         backup_service.restore_archive_to_staging(
