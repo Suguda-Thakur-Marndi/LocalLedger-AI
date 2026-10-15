@@ -28,15 +28,29 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
         "sales receipt",
         "welcome",
     }
-    for line in lines[:4]:
+    preferred_merchant = None
+    for line in lines[:8]:
         if (
             line.lower() not in generic_words
             and len(line) > 2
             and not re.match(r"^[\d\s.,$/#:-]+$", line)
+            and line != line.lower()
         ):
-            merchant = line
-            merchant_conf = 0.6
+            preferred_merchant = line
             break
+    if preferred_merchant:
+        merchant = preferred_merchant
+        merchant_conf = 0.6
+    else:
+        for line in lines[:8]:
+            if (
+                line.lower() not in generic_words
+                and len(line) > 2
+                and not re.match(r"^[\d\s.,$/#:-]+$", line)
+            ):
+                merchant = line
+                merchant_conf = 0.6
+                break
     if not merchant and lines:
         merchant = lines[0]
 
