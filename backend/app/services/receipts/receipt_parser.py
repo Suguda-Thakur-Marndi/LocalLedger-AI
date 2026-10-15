@@ -35,6 +35,7 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
             and len(line) > 2
             and not re.match(r"^[\d\s.,$/#:-]+$", line)
             and line != line.lower()
+            and re.match(r"^[A-Za-z0-9]", line)
         ):
             preferred_merchant = line
             break
@@ -47,6 +48,7 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
                 line.lower() not in generic_words
                 and len(line) > 2
                 and not re.match(r"^[\d\s.,$/#:-]+$", line)
+                and re.match(r"^[A-Za-z0-9]", line)
             ):
                 merchant = line
                 merchant_conf = 0.6
@@ -57,16 +59,19 @@ def extract_heuristically(text: str) -> tuple[ReceiptReviewData, dict[str, Field
     # 2. Invoice number
     invoice_num = None
     inv_conf = 0.3
-    inv_match = re.search(
-        r"(?:invoice\s+(?:number|num|no\.?|#)|receipt\s+(?:number|num|no\.?|#)|invoice|inv|receipt|bill|order|ref|ticket)[#:\s.-]+([A-Z0-9_-]{3,25})",
-        text,
-        re.IGNORECASE,
-    )
-    if inv_match:
+    for line in lines:
+        inv_match = re.search(
+            r"\b(?:invoice|inv|receipt|bill|order|ref|ticket)\b\s*(?:number|num|no\.?|#)?\s*[:#-]\s*([A-Z0-9][A-Z0-9_-]{2,24})",
+            line,
+            re.IGNORECASE,
+        )
+        if not inv_match:
+            continue
         extracted_num = inv_match.group(1).strip()
-        if extracted_num.lower() not in {"number", "num", "no"}:
+        if extracted_num.lower() not in {"number", "num", "no", "invoice"}:
             invoice_num = extracted_num
             inv_conf = 0.7
+            break
 
     # 3. Date
     tx_date = parse_date(text)
