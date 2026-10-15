@@ -23,17 +23,49 @@ LocalLedger AI is a privacy-focused desktop application for organizing receipts 
 
 ---
 
+<div align="center">
+  <a href="https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI/releases/download/v1.0.0/LocalLedger.AI.exe">
+    <img
+      src="assets/localledger-download.png"
+      alt="Download LocalLedger AI for Windows — privacy-focused receipt and invoice management desktop application"
+      width="900"
+    >
+  </a>
+
+  <p>
+    <strong>Windows Installer · Version 1.0.0 · Approximately 180 MB</strong>
+  </p>
+
+  <p>
+    <a href="https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI/releases/download/v1.0.0/LocalLedger.AI.exe">
+      <strong>⬇ Download LocalLedger AI for Windows</strong>
+    </a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI/releases/latest">
+      View All Releases
+    </a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI">
+      View Source Code
+    </a>
+  </p>
+</div>
+
+---
+
 ## Download LocalLedger AI
 
 - **Current release**: `v1.0.0`
 - **Platform**: Windows 10 / Windows 11, 64-bit
-- **Installer**: `LocalLedger AI-Setup-1.0.0.exe`
-- **Download size**: Approximately 116 MB (~121 MB)
-- **SHA-256 Checksum**: `1019e11d57e91349b7821a037cd0871e7968df67851b23fcbdfff80d36ba131a`
-- **Installation**: Download the Windows installer from the [Releases page](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY/releases/latest), run the `.exe`, follow the setup wizard, and launch LocalLedger AI from the desktop or Start Menu shortcut.
+- **Installer**: `LocalLedger.AI.exe`
+- **Download size**: Approximately 180 MB
+- **SHA-256 Checksum (reported for release v1.0.0)**: `ad2dacce5ed7b86e40f78e248f56e5bf0bf62526faad2304bd1ff4d319c546f3`
+- **Direct download**: [LocalLedger.AI.exe (v1.0.0)](https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI/releases/download/v1.0.0/LocalLedger.AI.exe)
+- **Releases page**: [GitHub Releases &mdash; Latest](https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI/releases/latest)
+- **Installation**: Download `LocalLedger.AI.exe`, launch the installer, and follow the setup wizard.
 
 > [!NOTE]
-> **Release setup required:** Replace `YOUR_USERNAME/YOUR_REPOSITORY` with your actual GitHub username and repository name. Upload the installer to a GitHub Release before sharing this download link publicly.
+> **Windows SmartScreen notice**: This installer is currently unsigned. Windows SmartScreen may display an *"Unknown Publisher"* warning. Click **More info** &rarr; **Run anyway** to proceed with installation. Only download from the official GitHub release.
 
 ---
 
@@ -119,8 +151,8 @@ Add screenshots of the actual application here.
 
 ### Windows installer — recommended
 
-1. Open the [latest GitHub Release](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY/releases/latest).
-2. Download `LocalLedger AI-Setup-1.0.0.exe`.
+1. Open the [latest GitHub Release](https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI/releases/latest).
+2. Download `LocalLedger.AI.exe`.
 3. Run the installer.
 4. Follow the installation wizard.
 5. Launch LocalLedger AI from the desktop or Start Menu shortcut.
@@ -217,8 +249,8 @@ These instructions are for contributors and developers, not normal installer use
 
 1. Clone your repository:
    ```powershell
-   git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
-   cd YOUR_REPOSITORY
+   git clone https://github.com/Suguda-Thakur-Marndi/LocalLedger-AI.git
+   cd LocalLedger-AI
    ```
 
 2. Install root and frontend dependencies:
