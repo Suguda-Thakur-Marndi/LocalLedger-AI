@@ -6,32 +6,13 @@ import { MonthlyExpenditureChart } from './components/MonthlyExpenditureChart'
 import { useCompanion } from '../../lib/useCompanion'
 import type { DashboardSummary } from '../../types'
 
-const DEMO_REPORTS_SUMMARY: DashboardSummary = {
-  total_receipts: 24,
-  total_transactions: 24,
-  currency_totals: [
-    {
-      currency: 'USD',
-      total_amount: '4820.50',
-      transaction_count: 24,
-      average_amount: '200.85',
-    },
-  ],
-  categories: [
-    { category: 'Software & Subscriptions', total_amount: '1850.00', currency: 'USD', transaction_count: 8, percentage: 38.4 },
-    { category: 'Hardware & Equipment', total_amount: '1420.00', currency: 'USD', transaction_count: 5, percentage: 29.5 },
-    { category: 'Office Supplies & Stationery', total_amount: '680.50', currency: 'USD', transaction_count: 4, percentage: 14.1 },
-    { category: 'Client Meals & Entertainment', total_amount: '510.00', currency: 'USD', transaction_count: 4, percentage: 10.6 },
-    { category: 'Travel & Transportation', total_amount: '360.00', currency: 'USD', transaction_count: 3, percentage: 7.5 },
-  ],
-  available_years: [2026, 2025],
-  monthly_trends: [
-    { month: '2026-01', total_amount: '650.00', currency: 'USD', transaction_count: 3 },
-    { month: '2026-02', total_amount: '820.00', currency: 'USD', transaction_count: 4 },
-    { month: '2026-03', total_amount: '1240.50', currency: 'USD', transaction_count: 6 },
-    { month: '2026-04', total_amount: '910.00', currency: 'USD', transaction_count: 5 },
-    { month: '2026-05', total_amount: '1200.00', currency: 'USD', transaction_count: 6 },
-  ],
+const EMPTY_REPORTS_SUMMARY: DashboardSummary = {
+  total_receipts: 0,
+  total_transactions: 0,
+  currency_totals: [],
+  categories: [],
+  available_years: [],
+  monthly_trends: [],
   weekly_trends: [],
   recent_transactions: [],
 }
@@ -52,7 +33,7 @@ export const ReportsPage: React.FC = () => {
     enabled: isConnected,
   })
 
-  const summary = isPublicUnconnected ? DEMO_REPORTS_SUMMARY : realSummary
+  const summary = isPublicUnconnected ? EMPTY_REPORTS_SUMMARY : realSummary
   const isLoading = isConnected && isRealLoading
 
   const exportUrl = api.getExportCsvUrl({
@@ -106,7 +87,7 @@ export const ReportsPage: React.FC = () => {
               analytics
             </span>
             <span>
-              <strong>Interactive Reports Demo:</strong> Displaying sample expenditure metrics. Connect your local companion to generate reports from your physical database.
+              <strong>Local Reports:</strong> Connect your local companion to generate reports from your physical database.
             </span>
           </div>
           <button

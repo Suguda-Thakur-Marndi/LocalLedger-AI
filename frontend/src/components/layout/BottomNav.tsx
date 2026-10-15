@@ -228,16 +228,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenHelp }) => {
             <div className="p-3 rounded-xl bg-surface-container-low flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[11px]">
-                  AR
+                  LV
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-semibold text-on-surface">Alex Rivera</span>
+                  <span className="font-semibold text-on-surface">Local Vault Owner</span>
                   <span className="text-[10px] text-on-surface-variant">
                     {isConnected ? 'Local Vault Active' : 'Web Preview Mode'}
                   </span>
                 </div>
               </div>
-              <span className="font-mono text-[10px] text-outline">v2.4.1-rc</span>
+              <span className="font-mono text-[10px] text-outline">v1.0.0</span>
             </div>
           </div>
         </div>

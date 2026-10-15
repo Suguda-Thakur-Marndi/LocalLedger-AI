@@ -266,12 +266,115 @@ def main():
     ucur.execute("SELECT COUNT(*) FROM documents")
     doc_count = ucur.fetchone()[0]
     uconn.close()
-    print(f" -> Live user database verified intact: {tx_count} transactions, {doc_count} documents.")
+    print(f" -> Live workspace database verified intact: {tx_count} transactions, {doc_count} documents.")
     assert tx_count == 2, f"Expected 2 transactions preserved, got {tx_count}"
     assert doc_count == 12, f"Expected 12 documents preserved, got {doc_count}"
 
+    appdata_dir = os.environ.get("APPDATA")
+    if appdata_dir:
+        appdata_db = Path(appdata_dir) / "LocalLedger AI" / "data" / "db" / "localledger.db"
+        if appdata_db.is_file():
+            aconn = sqlite3.connect(str(appdata_db))
+            acur = aconn.cursor()
+            acur.execute("SELECT COUNT(*) FROM transactions")
+            atx_count = acur.fetchone()[0]
+            acur.execute("SELECT COUNT(*) FROM documents")
+            adoc_count = acur.fetchone()[0]
+            aconn.close()
+            print(f" -> Live AppData database verified intact: {atx_count} transactions, {adoc_count} documents.")
+            assert atx_count == 2, f"Expected 2 transactions preserved in AppData, got {atx_count}"
+            assert adoc_count == 12, f"Expected 12 documents preserved in AppData, got {adoc_count}"
+
+    # -------------------------------------------------------------
+    # 12. Package purity: no database files or demo uploads bundled in installer resources
+    # -------------------------------------------------------------
+    print("\n[Criterion 12] Auditing package purity and absence of bundled demo data...")
+    resources_dir = WIN_UNPACKED / "resources"
+    bundled_dbs = []
+    for root, _, files in os.walk(resources_dir):
+        for f in files:
+            if f.endswith(".db") or f.endswith(".sqlite"):
+                bundled_dbs.append(os.path.join(root, f))
+    assert len(bundled_dbs) == 0, f"Found database files bundled in packaged app: {bundled_dbs}"
+    print(" -> Confirmed zero database files bundled in installer resources.")
+
+    # -------------------------------------------------------------
+    # 13. Fresh installation starts completely empty with zero demo/seed data
+    # -------------------------------------------------------------
+    print("\n[Criterion 13] Verifying fresh installation starts completely empty...")
+    import tempfile
+    with tempfile.TemporaryDirectory() as fresh_dir:
+        fresh_data_path = Path(fresh_dir)
+        fresh_port = 8765
+        backend_proc = subprocess.Popen(
+            [
+                str(BACKEND_EXE),
+                f"--port={fresh_port}",
+                f"--data-dir={fresh_data_path}",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+        try:
+            # Wait for backend to be ready
+            ready = False
+            for _ in range(40):
+                time.sleep(0.5)
+                ok, _ = http_probe(f"http://127.0.0.1:{fresh_port}/api/v1/health")
+                if ok:
+                    ready = True
+                    break
+            assert ready, "Fresh install backend failed to start"
+
+            # Query dashboard summary on fresh install
+            d_ok, d_summary = http_probe(f"http://127.0.0.1:{fresh_port}/api/v1/reports/dashboard")
+            assert d_ok, "Failed to query dashboard on fresh backend"
+            assert d_summary["total_receipts"] == 0, f"Expected 0 receipts, got {d_summary['total_receipts']}"
+            assert d_summary["total_transactions"] == 0, f"Expected 0 transactions, got {d_summary['total_transactions']}"
+            assert d_summary["currency_totals"] == []
+            assert d_summary["categories"] == []
+            assert d_summary["monthly_trends"] == []
+            assert d_summary["recent_transactions"] == []
+            print(" -> Fresh installation dashboard reports 0 receipts, 0 transactions, and empty collections.")
+
+            # Verify that adding a real transaction works
+            post_data = json.dumps({
+                "merchant": "Office Stationery Emporium",
+                "invoice_number": "OSE-1001",
+                "transaction_date": "2026-10-15",
+                "subtotal": 45.00,
+                "tax": 3.60,
+                "total": 48.60,
+                "currency": "USD",
+                "category": "Office Supplies & Stationery",
+                "review_status": "reviewed",
+                "original_filename": "receipt_1001.pdf",
+            }).encode("utf-8")
+
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{fresh_port}/api/v1/transactions",
+                data=post_data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as res:
+                assert res.status == 201
+
+            # Query dashboard summary again to verify update
+            _, updated_summary = http_probe(f"http://127.0.0.1:{fresh_port}/api/v1/reports/dashboard")
+            assert updated_summary["total_transactions"] == 1
+            assert len(updated_summary["currency_totals"]) == 1
+            assert float(updated_summary["currency_totals"][0]["total_amount"]) == 48.60
+            print(" -> Real transaction successfully recorded and reflected in ledger.")
+
+        finally:
+            subprocess.run(["taskkill", "/pid", str(backend_proc.pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            backend_proc.wait(timeout=5)
+
     print("\n" + "=" * 75)
-    print(" ALL 11 DESKTOP PRODUCTION REGRESSION TESTS PASSED (100% GREEN)")
+    print(" ALL 13 DESKTOP PRODUCTION REGRESSION TESTS PASSED (100% GREEN)")
     print("=" * 75)
 
 

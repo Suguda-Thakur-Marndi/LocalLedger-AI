@@ -48,103 +48,15 @@ function getPeriodRange(period: string) {
 
 const CURRENT_MONTH_LABEL = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 
-const DEMO_SUMMARY: DashboardSummary = {
-  total_receipts: 24,
-  total_transactions: 24,
-  currency_totals: [
-    {
-      currency: 'USD',
-      total_amount: '4820.50',
-      transaction_count: 24,
-      average_amount: '200.85',
-    },
-  ],
-  categories: [
-    { category: 'Software & Subscriptions', total_amount: '1850.00', currency: 'USD', transaction_count: 8, percentage: 38.4 },
-    { category: 'Hardware & Equipment', total_amount: '1420.00', currency: 'USD', transaction_count: 5, percentage: 29.5 },
-    { category: 'Office Supplies & Stationery', total_amount: '680.50', currency: 'USD', transaction_count: 4, percentage: 14.1 },
-    { category: 'Client Meals & Entertainment', total_amount: '510.00', currency: 'USD', transaction_count: 4, percentage: 10.6 },
-    { category: 'Travel & Transportation', total_amount: '360.00', currency: 'USD', transaction_count: 3, percentage: 7.5 },
-  ],
-  available_years: [2026, 2025],
-  monthly_trends: [
-    { month: '2026-01', total_amount: '650.00', currency: 'USD', transaction_count: 3 },
-    { month: '2026-02', total_amount: '820.00', currency: 'USD', transaction_count: 4 },
-    { month: '2026-03', total_amount: '1240.50', currency: 'USD', transaction_count: 6 },
-    { month: '2026-04', total_amount: '910.00', currency: 'USD', transaction_count: 5 },
-    { month: '2026-05', total_amount: '1200.00', currency: 'USD', transaction_count: 6 },
-  ],
+const EMPTY_SUMMARY: DashboardSummary = {
+  total_receipts: 0,
+  total_transactions: 0,
+  currency_totals: [],
+  categories: [],
+  available_years: [],
+  monthly_trends: [],
   weekly_trends: [],
-  recent_transactions: [
-    {
-      id: 'demo-tx-1',
-      merchant: 'OpenAI API Platform',
-      invoice_number: 'INV-2026-0091',
-      transaction_date: '2026-05-12',
-      subtotal: '120.00',
-      tax: '0.00',
-      total: '120.00',
-      currency: 'USD',
-      category: 'Software & Subscriptions',
-      payment_method: 'Credit Card •••• 4242',
-      review_status: 'reviewed',
-      original_filename: 'openai_invoice_may2026.pdf',
-      document_content_hash: 'demo-hash-1',
-      created_at: '2026-05-12T10:00:00Z',
-      updated_at: '2026-05-12T10:00:00Z',
-    },
-    {
-      id: 'demo-tx-2',
-      merchant: 'Apple Store Downtown',
-      invoice_number: 'AAPL-98214',
-      transaction_date: '2026-05-08',
-      subtotal: '1299.00',
-      tax: '103.92',
-      total: '1402.92',
-      currency: 'USD',
-      category: 'Hardware & Equipment',
-      payment_method: 'Apple Pay',
-      review_status: 'reviewed',
-      original_filename: 'apple_receipt_macbook.pdf',
-      document_content_hash: 'demo-hash-2',
-      created_at: '2026-05-08T14:30:00Z',
-      updated_at: '2026-05-08T14:30:00Z',
-    },
-    {
-      id: 'demo-tx-3',
-      merchant: 'GitHub Copilot Enterprise',
-      invoice_number: 'GH-774921',
-      transaction_date: '2026-05-01',
-      subtotal: '19.00',
-      tax: '0.00',
-      total: '19.00',
-      currency: 'USD',
-      category: 'Software & Subscriptions',
-      payment_method: 'Credit Card •••• 4242',
-      review_status: 'reviewed',
-      original_filename: 'github_copilot_sub.pdf',
-      document_content_hash: 'demo-hash-3',
-      created_at: '2026-05-01T09:00:00Z',
-      updated_at: '2026-05-01T09:00:00Z',
-    },
-    {
-      id: 'demo-tx-4',
-      merchant: 'Staples Office Solutions',
-      invoice_number: 'STP-44109',
-      transaction_date: '2026-04-28',
-      subtotal: '145.50',
-      tax: '11.64',
-      total: '157.14',
-      currency: 'USD',
-      category: 'Office Supplies & Stationery',
-      payment_method: 'Debit Card •••• 1098',
-      review_status: 'pending_review',
-      original_filename: 'staples_office_chair.jpg',
-      document_content_hash: 'demo-hash-4',
-      created_at: '2026-04-28T16:20:00Z',
-      updated_at: '2026-04-28T16:20:00Z',
-    },
-  ],
+  recent_transactions: [],
 }
 
 export const DashboardPage: React.FC = () => {
@@ -171,9 +83,9 @@ export const DashboardPage: React.FC = () => {
     enabled: isConnected,
   })
 
-  // In public web mode without companion, gracefully fallback to demo summary
+  // In public web mode without companion, default to empty summary
   const summary: DashboardSummary | undefined = isPublicUnconnected
-    ? DEMO_SUMMARY
+    ? EMPTY_SUMMARY
     : realSummary
 
   const isLoading = isConnected && isSummaryLoading
@@ -307,11 +219,11 @@ export const DashboardPage: React.FC = () => {
                     isConnected ? 'bg-primary animate-ping' : 'bg-tertiary'
                   }`}
                 />
-                {isConnected ? 'Vault Sync Active' : 'Demo Preview Active'}
+                {isConnected ? 'Vault Sync Active' : 'Offline / Standby'}
               </span>
             </div>
             <h1 className="font-display text-2xl sm:text-display text-on-surface tracking-tight font-bold">
-              {isPublicUnconnected ? 'LocalLedger AI Workspace' : 'Good morning, Alex'}
+              Local Vault Dashboard
             </h1>
             <p className="font-body-md text-xs sm:text-body-md text-on-surface-variant max-w-2xl leading-relaxed">
               {isPublicUnconnected
@@ -415,7 +327,7 @@ export const DashboardPage: React.FC = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-headline-sm text-xs sm:text-headline-sm text-on-surface font-semibold">
                   {isPublicUnconnected
-                    ? 'Interactive Demo Preview Active'
+                    ? 'Local-First Sovereign Architecture'
                     : status?.ollama_connected
                     ? '100% Local Processing Active'
                     : '100% On-Device Processing (OCR Fallback)'}
@@ -426,7 +338,7 @@ export const DashboardPage: React.FC = () => {
               </div>
               <p className="font-body-sm text-[11px] sm:text-body-sm text-on-surface-variant max-w-3xl leading-relaxed">
                 {isPublicUnconnected
-                  ? 'Viewing sample metrics in web mode. Live receipt parsing, OCR, and AI field extraction require the local application companion.'
+                  ? 'Connect your local companion to sync receipts, OCR scans, and local ledger records.'
                   : 'All receipt parsing, OCR, and AI field extraction are running on your machine via local loopback. Zero document bytes leave this device.'}
               </p>
             </div>
@@ -444,7 +356,7 @@ export const DashboardPage: React.FC = () => {
                 Vault: {status?.storage_directory ? 'Local Storage' : '~/Documents/Vault'}
               </span>
               <span className="text-outline-variant font-normal">
-                ({formatBytes(status?.storage_size_bytes || (isPublicUnconnected ? 1548200 : 0))})
+                ({formatBytes(status?.storage_size_bytes || 0)})
               </span>
             </div>
             <span className="hidden lg:inline text-outline-variant">•</span>
@@ -466,9 +378,9 @@ export const DashboardPage: React.FC = () => {
             title="Total Expenses"
             value={formatCurrency(totalAmount, primaryCurrency)}
             icon="payments"
-            trendText="+12.4%"
-            trendType="positive"
-            subtitle="vs last month"
+            trendText={totalTransactions > 0 ? `${totalTransactions} items` : 'No activity'}
+            trendType={totalTransactions > 0 ? 'positive' : 'neutral'}
+            subtitle={totalTransactions > 0 ? 'Current cycle' : 'No records yet'}
             footerLeft={`${totalTransactions} items`}
             footerRight={<span className="text-outline-variant font-mono">100% AUDITED</span>}
           />
@@ -478,7 +390,7 @@ export const DashboardPage: React.FC = () => {
             title="Receipts Processed"
             value={totalReceipts}
             icon="document_scanner"
-            trendText={totalReceipts > 0 ? `+${Math.min(totalReceipts, 8)} this week` : 'Ready'}
+            trendText={totalReceipts > 0 ? `${totalReceipts} stored` : 'Ready'}
             trendType="neutral"
             subtitle="auto-categorized"
             footerLeft="100% OCR parsed"
@@ -508,13 +420,13 @@ export const DashboardPage: React.FC = () => {
             title="Average Transaction"
             value={formatCurrency(avgAmount, primaryCurrency)}
             icon="analytics"
-            trendText="-4.2% vs 3-mo"
+            trendText={totalTransactions > 0 ? `(${primaryCurrency})` : 'No data'}
             trendType="neutral"
             subtitle={`(${primaryCurrency})`}
-            footerLeft="Median ticket"
+            footerLeft="Average ticket"
             footerRight={
               <span className="font-medium text-on-surface">
-                {formatCurrency(Number(avgAmount) * 0.75, primaryCurrency)}
+                {formatCurrency(avgAmount, primaryCurrency)}
               </span>
             }
           />
@@ -849,7 +761,7 @@ export const DashboardPage: React.FC = () => {
                     {isConnected ? 'Local SQLite Instance' : 'Web Preview SQLite Model'}
                   </span>
                 </div>
-                <span className="font-mono text-[10px] sm:text-[11px] text-outline">v2.4.1-rc</span>
+                <span className="font-mono text-[10px] sm:text-[11px] text-outline">v1.0.0</span>
               </div>
               <p className="font-body-sm text-[11px] sm:text-body-sm text-on-surface-variant leading-relaxed">
                 {isConnected

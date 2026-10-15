@@ -8,7 +8,6 @@ safe per-user data persistence in AppData, and handles legacy data migrations.
 
 import argparse
 import os
-import shutil
 import sys
 from pathlib import Path
 
@@ -18,31 +17,6 @@ if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
 import uvicorn
-
-
-def migrate_legacy_data(target_db_path: Path, target_upload_dir: Path, base_dir: Path) -> None:
-    """Safely migrate database and receipts from workspace development directory to AppData if needed."""
-    try:
-        legacy_db = base_dir / "data" / "db" / "localledger.db"
-        if not target_db_path.exists() and legacy_db.exists() and legacy_db.stat().st_size > 0:
-            target_db_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(legacy_db, target_db_path)
-            print(f"[Desktop Entry] Migrated existing SQLite database from {legacy_db} to {target_db_path}")
-
-        legacy_uploads = base_dir / "data" / "uploads"
-        if legacy_uploads.is_dir() and target_upload_dir.is_dir():
-            target_upload_dir.mkdir(parents=True, exist_ok=True)
-            copied_files = 0
-            for item in legacy_uploads.iterdir():
-                if item.is_file():
-                    target_file = target_upload_dir / item.name
-                    if not target_file.exists():
-                        shutil.copy2(item, target_file)
-                        copied_files += 1
-            if copied_files > 0:
-                print(f"[Desktop Entry] Migrated {copied_files} receipt uploads to {target_upload_dir}")
-    except Exception as e:
-        print(f"[Desktop Entry] Warning: Legacy data migration skipped or failed: {e}", file=sys.stderr)
 
 
 def main():
@@ -71,12 +45,9 @@ def main():
     if args.data_dir:
         settings.LOCALLEDGER_DATA_DIR = str(Path(args.data_dir).resolve())
 
-    # Perform safe one-time migration from workspace data if target is fresh
-    migrate_legacy_data(
-        target_db_path=settings.resolved_db_path,
-        target_upload_dir=settings.resolved_upload_dir,
-        base_dir=settings.BASE_DIR,
-    )
+    # Ensure persistent directories exist without copying development or demo data
+    settings.resolved_db_path.parent.mkdir(parents=True, exist_ok=True)
+    settings.resolved_upload_dir.mkdir(parents=True, exist_ok=True)
 
     from app.db.base import Base
     from app.db.session import engine

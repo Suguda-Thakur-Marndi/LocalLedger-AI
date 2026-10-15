@@ -57,10 +57,41 @@ describe('DashboardPage', () => {
       </QueryClientProvider>
     )
 
-    expect(await screen.findByText(/Good morning, Alex/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Local Vault Dashboard/i)).toBeInTheDocument()
     expect(screen.getAllByText(/Total Expenses/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Receipts Processed/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/No recent transactions recorded yet/i).length).toBeGreaterThan(0)
+    // Verify no fake demo data is present
+    expect(screen.queryByText(/OpenAI API Platform/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Apple Store Downtown/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\$4,820\.50/i)).not.toBeInTheDocument()
+  })
+
+  it('renders error state on API failure without displaying mock or fake data', async () => {
+    vi.mocked(api.getDashboardSummary).mockRejectedValueOnce(
+      new Error('Connection refused to 127.0.0.1:8000')
+    )
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByText(/Failed to load dashboard metrics/i)).toBeInTheDocument()
+    expect(screen.getByText(/Connection refused to 127\.0\.0\.1:8000/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument()
+
+    // Assert that mock/demo records are never silently rendered on error
+    expect(screen.queryByText(/OpenAI API Platform/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Apple Store Downtown/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\$4,820\.50/i)).not.toBeInTheDocument()
   })
 
   it('renders KPI metrics and recent transactions when data exists', async () => {
