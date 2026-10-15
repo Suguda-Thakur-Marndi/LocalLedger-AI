@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.localledger.desktop",
+  "productName": "LocalLedger AI",
+  "copyright": "Copyright © 2026 LocalLedger AI",
+  "directories": {
+    "output": "dist/installer"
+  },
+  "asar": false,
+  "files": [
+    "dist-electron/**/*",
+    "frontend/dist/**/*",
+    "build/icon.ico",
+    "build/icon.png",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "dist/backend/localledger-backend",
+      "to": "backend/localledger-backend"
+    }
+  ],
+  "win": {
+    "icon": "build/icon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "LocalLedger AI",
+    "uninstallDisplayName": "LocalLedger AI",
+    "deleteAppDataOnUninstall": false
+  }
+}

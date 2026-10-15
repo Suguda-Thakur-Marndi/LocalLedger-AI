@@ -33,22 +33,99 @@ export const AppLayout: React.FC = () => {
 
   const ollamaConnected = health?.ollama?.connected ?? false
 
-  // Global keyboard shortcut for ⌘K / Ctrl+K
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.userAgent || '')
+
+  const handleExportBackup = async () => {
+    try {
+      const { filename, blob } = await api.downloadBackupZip()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err: any) {
+      alert(err.message || 'Failed to download backup archive.')
+    }
+  }
+
+  // Subscribe to native desktop menu events
+  useEffect(() => {
+    const desktopBridge = (window as any).desktopBridge
+    if (!desktopBridge?.onMenuAction) return
+
+    const unsubscribe = desktopBridge.onMenuAction((action: string) => {
+      switch (action) {
+        case 'add-receipt':
+          navigate('/upload')
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('localledger:open-file-picker'))
+          }, 60)
+          break
+        case 'open-settings':
+          navigate('/settings')
+          break
+        case 'open-help':
+          setHelpOpen(true)
+          break
+        case 'export-backup':
+          handleExportBackup()
+          break
+        case 'focus-search': {
+          setMobileSearchVisible(true)
+          const input = document.getElementById('globalSearchInput') as HTMLInputElement | null
+          if (input) {
+            input.focus()
+            input.select()
+          }
+          break
+        }
+      }
+    })
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe()
+    }
+  }, [navigate])
+
+  // Global keyboard shortcuts for Ctrl+K, Ctrl+O, Ctrl+,
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey
+
+      // Ctrl+K: Focus search
+      if (isCmdOrCtrl && e.key.toLowerCase() === 'k') {
         e.preventDefault()
-        setMobileSearchVisible(true)
         const input = document.getElementById('globalSearchInput') as HTMLInputElement | null
         if (input) {
           input.focus()
           input.select()
+        } else {
+          setMobileSearchVisible(true)
         }
       }
+
+      // Ctrl+O: Add Receipt / Upload Files
+      if (isCmdOrCtrl && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        navigate('/upload')
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('localledger:open-file-picker'))
+        }, 60)
+      }
+
+      // Ctrl+,: Open Settings
+      if (isCmdOrCtrl && (e.key === ',' || e.code === 'Comma')) {
+        e.preventDefault()
+        navigate('/settings')
+      }
     }
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [navigate])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -108,7 +185,7 @@ export const AppLayout: React.FC = () => {
                   type="text"
                 />
                 <kbd className="absolute right-2 px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-caps text-label-caps select-none pointer-events-none">
-                  ⌘K
+                  {isMac ? '⌘K' : 'Ctrl+K'}
                 </kbd>
               </form>
             </div>
@@ -211,6 +288,7 @@ export const AppLayout: React.FC = () => {
               {/* Upload Receipt Action */}
               <Link
                 to="/upload"
+                id="topHeaderUploadBtn"
                 className="inline-flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-container text-on-primary px-3 sm:px-3.5 py-2 rounded-lg font-body-sm text-body-sm font-medium transition-all shadow-xs active:scale-[0.98] min-h-[40px]"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>

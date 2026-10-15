@@ -1,0 +1,23 @@
+{
+  "name": "localledger-ai-desktop",
+  "productName": "LocalLedger AI",
+  "version": "1.0.0",
+  "description": "Private, sovereign invoice and receipt management desktop application",
+  "author": "LocalLedger AI Team",
+  "license": "MIT",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "desktop:build-electron": "tsc -p tsconfig.electron.json",
+    "desktop:build-frontend": "npm --prefix frontend run build",
+    "desktop:build-backend": ".\\backend\\.venv\\Scripts\\python.exe .\\scripts\\build_backend.py",
+    "desktop:dev": "npm run desktop:build-electron && electron .",
+    "dev:desktop": "npm run desktop:dev",
+    "desktop:dist": "npm run desktop:build-frontend && npm run desktop:build-electron && npm run desktop:build-backend && electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0"
+  }
+}

@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CompanionProvider } from './lib/CompanionContext'
 import { CompanionModal } from './components/CompanionModal'
@@ -11,6 +11,7 @@ import { ReceiptReviewPage } from './features/receipts/ReceiptReviewPage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { ReportsPage } from './features/reports/ReportsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { isDesktopEnvironment } from './lib/runtimeConfig'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,10 +23,12 @@ const queryClient = new QueryClient({
 })
 
 export const App: React.FC = () => {
+  const Router = isDesktopEnvironment() ? HashRouter : BrowserRouter
+
   return (
     <QueryClientProvider client={queryClient}>
       <CompanionProvider>
-        <BrowserRouter>
+        <Router>
           <CompanionModal />
           <Routes>
             <Route path="/" element={<AppLayout />}>
@@ -40,7 +43,7 @@ export const App: React.FC = () => {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </Router>
       </CompanionProvider>
     </QueryClientProvider>
   )

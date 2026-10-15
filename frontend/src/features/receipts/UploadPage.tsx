@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { formatBytes } from '../../lib/utils'
@@ -20,7 +20,19 @@ export const UploadPage: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
-  const { isPublicUnconnected, openCompanionModal } = useCompanion()
+  const { isConnected, isPublicUnconnected, openCompanionModal } = useCompanion()
+
+  useEffect(() => {
+    const handleTriggerPicker = () => {
+      if (!isPublicUnconnected) {
+        fileInputRef.current?.click()
+      } else {
+        openCompanionModal()
+      }
+    }
+    window.addEventListener('localledger:open-file-picker', handleTriggerPicker)
+    return () => window.removeEventListener('localledger:open-file-picker', handleTriggerPicker)
+  }, [isPublicUnconnected, openCompanionModal])
 
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -59,6 +71,7 @@ export const UploadPage: React.FC = () => {
       return
     }
 
+    // 1. File format validation
     const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/jpg']
     if (!validTypes.includes(item.file.type) && !item.file.name.match(/\.(pdf|png|jpe?g|webp)$/i)) {
       setQueue((prev) =>
@@ -68,6 +81,23 @@ export const UploadPage: React.FC = () => {
                 ...q,
                 status: 'error',
                 errorMessage: 'Unsupported format. Please upload PDF, PNG, JPEG, or WebP.',
+              }
+            : q
+        )
+      )
+      return
+    }
+
+    // 2. 25 MB File size validation (matching backend settings.MAX_UPLOAD_SIZE_MB)
+    const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024 // 25 MB
+    if (item.file.size > MAX_FILE_SIZE_BYTES) {
+      setQueue((prev) =>
+        prev.map((q) =>
+          q.id === item.id
+            ? {
+                ...q,
+                status: 'error',
+                errorMessage: `File size (${formatBytes(item.file.size)}) exceeds the 25 MB limit.`,
               }
             : q
         )
@@ -96,13 +126,24 @@ export const UploadPage: React.FC = () => {
         )
       )
     } catch (err: any) {
+      const msg = err.message || ''
+      let userFriendlyError = msg
+      if (
+        msg.includes('Failed to fetch') ||
+        msg.includes('NetworkError') ||
+        msg.includes('ECONNREFUSED') ||
+        !isConnected
+      ) {
+        userFriendlyError = 'Local companion backend is unreachable. Verify service is running on 127.0.0.1.'
+      }
+
       setQueue((prev) =>
         prev.map((q) =>
           q.id === item.id
             ? {
                 ...q,
                 status: 'error',
-                errorMessage: err.message || 'Local upload and text extraction failed.',
+                errorMessage: userFriendlyError || 'Local upload and text extraction failed.',
               }
             : q
         )
@@ -204,6 +245,7 @@ export const UploadPage: React.FC = () => {
       >
         <input
           ref={fileInputRef}
+          id="uploadFileInput"
           type="file"
           multiple
           disabled={isPublicUnconnected}
@@ -240,6 +282,7 @@ export const UploadPage: React.FC = () => {
 
           <button
             type="button"
+            id="browseFilesBtn"
             disabled={isPublicUnconnected}
             className={`mt-2 inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl font-body-sm text-body-sm font-medium transition-all shadow-xs ${
               isPublicUnconnected

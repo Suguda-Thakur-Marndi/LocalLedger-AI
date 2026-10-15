@@ -201,24 +201,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onCloseMob
         </nav>
 
         {/* User Profile Pill */}
-        <div className="pt-space-xs flex items-center justify-center lg:justify-between px-2 py-1.5 rounded-lg hover:bg-surface-container-high transition-colors">
+        <button
+          type="button"
+          aria-label="Open Vault Settings"
+          onClick={() => {
+            if (onCloseMobile) onCloseMobile()
+            window.location.hash = '#/settings'
+          }}
+          title="Open Vault Settings"
+          className="pt-space-xs flex items-center justify-center lg:justify-between px-2 py-1.5 rounded-lg hover:bg-surface-container-high transition-colors text-left w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+        >
           <div className="flex items-center gap-space-xs">
             <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold text-xs uppercase shrink-0">
-              AR
+              LV
             </div>
             <div className="hidden lg:flex flex-col min-w-0">
               <span className="font-body-sm text-body-sm font-semibold text-on-surface leading-tight truncate">
-                Alex Rivera
+                Local Vault Owner
               </span>
               <span className="font-label-caps text-label-caps text-on-surface-variant leading-tight truncate">
                 {isLocal ? 'Local Vault' : status === 'connected' ? 'Connected Companion' : status === 'saved' ? 'Saved (Offline)' : 'Web Preview'}
               </span>
             </div>
           </div>
-          <span className="material-symbols-outlined text-on-surface-variant text-[18px] cursor-pointer hover:text-on-surface hidden lg:inline">
-            more_vert
+          <span className="material-symbols-outlined text-on-surface-variant text-[18px] hover:text-on-surface hidden lg:inline">
+            settings
           </span>
-        </div>
+        </button>
       </div>
     </div>
   )

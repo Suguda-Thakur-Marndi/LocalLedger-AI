@@ -17,48 +17,62 @@ class OCRService:
         self._init_tesseract()
 
     def _init_tesseract(self):
-        candidates = []
+        try:
+            candidates = []
 
-        # 1. Check configured setting
-        if settings.TESSERACT_CMD:
-            candidates.append(Path(settings.TESSERACT_CMD))
+            # 1. Check configured setting
+            if settings.TESSERACT_CMD:
+                candidates.append(Path(settings.TESSERACT_CMD))
 
-        # 2. Check user Local Programs path (standard UB-Mannheim per-user install)
-        candidates.append(Path.home() / "AppData" / "Local" / "Programs" / "Tesseract-OCR" / "tesseract.exe")
+            # 2. Check LOCALAPPDATA / user Local Programs path (standard UB-Mannheim per-user install)
+            local_app_data = os.environ.get("LOCALAPPDATA")
+            if local_app_data:
+                candidates.append(Path(local_app_data) / "Programs" / "Tesseract-OCR" / "tesseract.exe")
 
-        # 3. Check standard 64-bit and 32-bit Program Files paths
-        candidates.append(Path("C:/Program Files/Tesseract-OCR/tesseract.exe"))
-        candidates.append(Path("C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"))
+            # 3. Check home directory if resolvable
+            try:
+                home = Path.home()
+            except Exception:
+                user_profile = os.environ.get("USERPROFILE")
+                home = Path(user_profile) if user_profile else None
 
-        # 4. Check Scoop install locations
-        candidates.append(Path.home() / "scoop" / "shims" / "tesseract.exe")
-        candidates.append(Path.home() / "scoop" / "apps" / "tesseract" / "current" / "tesseract.exe")
+            if home:
+                candidates.append(home / "AppData" / "Local" / "Programs" / "Tesseract-OCR" / "tesseract.exe")
+                candidates.append(home / "scoop" / "shims" / "tesseract.exe")
+                candidates.append(home / "scoop" / "apps" / "tesseract" / "current" / "tesseract.exe")
 
-        # 5. Check PATH
-        which_path = shutil.which("tesseract")
-        if which_path:
-            candidates.append(Path(which_path))
+            # 4. Check standard 64-bit and 32-bit Program Files paths
+            candidates.append(Path("C:/Program Files/Tesseract-OCR/tesseract.exe"))
+            candidates.append(Path("C:/Program Files (x86)/Tesseract-OCR/tesseract.exe"))
 
-        for candidate in candidates:
-            if candidate and candidate.is_file():
-                self._binary_path = str(candidate)
-                pytesseract.pytesseract.tesseract_cmd = str(candidate)
+            # 5. Check PATH
+            which_path = shutil.which("tesseract")
+            if which_path:
+                candidates.append(Path(which_path))
 
-                # Set TESSDATA_PREFIX if tessdata folder exists alongside the binary
-                tessdata_dir = candidate.parent / "tessdata"
-                if tessdata_dir.is_dir() and not os.environ.get("TESSDATA_PREFIX"):
-                    os.environ["TESSDATA_PREFIX"] = str(tessdata_dir)
+            for candidate in candidates:
+                if candidate and candidate.is_file():
+                    self._binary_path = str(candidate)
+                    pytesseract.pytesseract.tesseract_cmd = str(candidate)
 
-                try:
-                    version = pytesseract.get_tesseract_version()
-                    self._available = True
-                    logger.info("Tesseract OCR initialized successfully (version: %s, binary: %s)", version, self._binary_path)
-                    return
-                except Exception as e:
-                    logger.warning("Found candidate %s but failed to initialize: %s", candidate, str(e))
+                    # Set TESSDATA_PREFIX if tessdata folder exists alongside the binary
+                    tessdata_dir = candidate.parent / "tessdata"
+                    if tessdata_dir.is_dir() and not os.environ.get("TESSDATA_PREFIX"):
+                        os.environ["TESSDATA_PREFIX"] = str(tessdata_dir)
 
-        self._available = False
-        logger.info("Tesseract OCR binary not detected in candidate paths or system PATH.")
+                    try:
+                        version = pytesseract.get_tesseract_version()
+                        self._available = True
+                        logger.info("Tesseract OCR initialized successfully (version: %s, binary: %s)", version, self._binary_path)
+                        return
+                    except Exception as e:
+                        logger.warning("Found candidate %s but failed to initialize: %s", candidate, str(e))
+
+            self._available = False
+            logger.info("Tesseract OCR binary not detected in candidate paths or system PATH.")
+        except Exception as e:
+            logger.warning("Unexpected error during Tesseract OCR discovery: %s", str(e))
+            self._available = False
 
     def is_available(self) -> bool:
         if self._available is None:

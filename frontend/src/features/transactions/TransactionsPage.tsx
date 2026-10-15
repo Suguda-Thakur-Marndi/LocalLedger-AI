@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import type { Transaction } from '../../types'
 import { formatCurrency, formatDate } from '../../lib/utils'
@@ -23,9 +23,18 @@ const CURRENCIES = ['All Currencies', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY']
 export const TransactionsPage: React.FC = () => {
   const queryClient = useQueryClient()
   const { isConnected, isPublicUnconnected, openCompanionModal } = useCompanion()
+  const [searchParams] = useSearchParams()
+  const urlSearch = searchParams.get('search') || ''
+  const [userQuery, setUserQuery] = useState<string | null>(null)
+  const [lastUrlQuery, setLastUrlQuery] = useState(urlSearch)
 
-  // Filters & Pagination State
-  const [search, setSearch] = useState('')
+  if (urlSearch !== lastUrlQuery) {
+    setLastUrlQuery(urlSearch)
+    setUserQuery(null)
+  }
+
+  const search = userQuery !== null ? userQuery : urlSearch
+  const setSearch = (val: string) => setUserQuery(val)
   const [category, setCategory] = useState('All Categories')
   const [currency, setCurrency] = useState('All Currencies')
   const [reviewStatus, setReviewStatus] = useState<'all' | 'reviewed' | 'pending_review'>('all')

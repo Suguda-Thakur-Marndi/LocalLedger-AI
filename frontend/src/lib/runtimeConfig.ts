@@ -81,11 +81,28 @@ export function setLocalEnvironmentOverride(override: boolean | null): void {
 }
 
 /**
- * Checks if the current execution context is local development or automated testing.
+ * Checks if the current execution context is the Electron desktop application.
+ */
+export function isDesktopEnvironment(): boolean {
+  if (typeof window === 'undefined') return false
+  return Boolean(
+    (window as any).desktopBridge ||
+      (window as any).process?.type === 'renderer' ||
+      window.location.protocol === 'file:'
+  )
+}
+
+/**
+ * Checks if the current execution context is local development, automated testing, or desktop app.
  */
 export function isLocalEnvironment(): boolean {
   if (_localEnvOverride !== null) {
     return _localEnvOverride
+  }
+
+  // If running inside Electron desktop shell
+  if (isDesktopEnvironment()) {
+    return true
   }
 
   // If in Vitest / Jest test runner
@@ -251,6 +268,7 @@ export function determineRuntimeMode(
 
 /**
  * Resolves the effective API base URL.
+ * - In desktop shell: returns the dynamic loopback companion URL provided by desktopBridge.
  * - In local development: defaults to VITE_API_BASE_URL or 'http://127.0.0.1:8000/api/v1'.
  * - On public website: returns verified companion URL ONLY if connected, otherwise NULL.
  * - Stored but unverified URLs ALWAYS return NULL to prevent silent localhost traffic.
@@ -259,6 +277,19 @@ export function getEffectiveApiBase(
   overrideUrl?: string | null,
   isVerified?: boolean
 ): string | null {
+  // If running inside Electron desktop shell and desktopBridge provided dynamic port
+  if (typeof window !== 'undefined' && (window as any).desktopBridge?.getApiBaseUrl) {
+    try {
+      const desktopUrl = (window as any).desktopBridge.getApiBaseUrl()
+      if (desktopUrl) {
+        const normalized = normalizeApiUrl(desktopUrl)
+        if (normalized) return normalized
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   if (isLocalEnvironment()) {
     if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) {
       return import.meta.env.VITE_API_BASE_URL

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { formatBytes } from '../../lib/utils'
 import { useCompanion } from '../../lib/useCompanion'
-import { DEFAULT_LOCAL_API_BASE } from '../../lib/runtimeConfig'
+import { DEFAULT_LOCAL_API_BASE, isDesktopEnvironment } from '../../lib/runtimeConfig'
 
 export const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient()
@@ -364,8 +364,10 @@ export const SettingsPage: React.FC = () => {
               <div className="p-3 rounded-xl bg-surface-container-low/60 flex items-center justify-between sm:col-span-2">
                 <span className="text-on-surface-variant text-xs sm:text-body-sm">OCR Pipeline</span>
                 <span className="font-semibold text-xs text-primary flex items-center gap-1 font-label-caps text-label-caps">
-                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                  PyMuPDF + Local Tesseract
+                  <span className="material-symbols-outlined text-[14px]">
+                    {status?.ocr_engine_available ? 'check_circle' : 'info'}
+                  </span>
+                  {status?.ocr_engine_available ? 'PyMuPDF + Local Tesseract' : 'PyMuPDF Native Text (Heuristic Fallback)'}
                 </span>
               </div>
 
@@ -379,23 +381,71 @@ export const SettingsPage: React.FC = () => {
                     : 'None detected via 127.0.0.1:11434'}
                 </span>
               </div>
+
+              {!status?.ollama_connected && !isPublicUnconnected && (
+                <div className="sm:col-span-2 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs text-on-surface-variant space-y-1">
+                  <div className="font-semibold text-on-surface flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-amber-500">info</span>
+                    Ollama Setup (Optional)
+                  </div>
+                  <p>
+                    Local neural extraction uses Ollama. When offline, LocalLedger AI automatically uses built-in heuristic rule-based extraction.
+                  </p>
+                  <p className="font-mono text-[11px] text-on-surface bg-surface-container-lowest p-1.5 rounded border border-outline-variant/20">
+                    ollama serve &amp;&amp; ollama pull {status?.ollama_model || 'qwen2.5:1.5b'}
+                  </p>
+                </div>
+              )}
+
+              {!status?.ocr_engine_available && !isPublicUnconnected && (
+                <div className="sm:col-span-2 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs text-on-surface-variant space-y-1">
+                  <div className="font-semibold text-on-surface flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-amber-500">info</span>
+                    Tesseract OCR Setup (For Image Receipts)
+                  </div>
+                  <p>
+                    Digital PDFs extract cleanly without Tesseract. To enable optical character recognition for scanned images (PNG/JPG):
+                  </p>
+                  <p className="font-mono text-[11px] text-on-surface bg-surface-container-lowest p-1.5 rounded border border-outline-variant/20">
+                    winget install UB-Mannheim.TesseractOCR
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* SECTION 2: Local Storage & Vault Panel */}
           <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-xs p-space-md sm:p-space-lg space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-surface-container-low text-primary flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[24px]">folder_special</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-surface-container-low text-primary flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[24px]">folder_special</span>
+                </div>
+                <div>
+                  <h2 className="font-headline-sm text-sm sm:text-headline-sm text-on-surface font-semibold">
+                    Host File Vault &amp; Database
+                  </h2>
+                  <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
+                    Physical filesystem paths where your receipts and SQLite tables reside.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-headline-sm text-sm sm:text-headline-sm text-on-surface font-semibold">
-                  Host File Vault &amp; Database
-                </h2>
-                <p className="font-body-sm text-xs sm:text-body-sm text-on-surface-variant">
-                  Physical filesystem paths where your receipts and SQLite tables reside.
-                </p>
-              </div>
+
+              {isDesktopEnvironment() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).desktopBridge?.openDataFolder) {
+                      (window as any).desktopBridge.openDataFolder()
+                    }
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant/40 rounded-xl font-body-sm text-xs sm:text-body-sm font-medium transition-all shadow-xs self-start sm:self-auto"
+                  title="Open persistent application data folder in Windows File Explorer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">folder_open</span>
+                  <span>Open Vault Folder</span>
+                </button>
+              )}
             </div>
 
             <div className="space-y-2 text-body-sm">

@@ -1,3 +1,5 @@
+import os
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -15,6 +17,7 @@ class Settings(BaseSettings):
     DATA_DIR: str = "data"
     DB_PATH: str = "data/db/localledger.db"
     UPLOAD_DIR: str = "data/uploads"
+    LOCALLEDGER_DATA_DIR: str | None = None
 
     # Ingestion limits
     MAX_UPLOAD_SIZE_MB: int = 25
@@ -58,25 +61,41 @@ class Settings(BaseSettings):
 
     @property
     def resolved_data_dir(self) -> Path:
-        path = Path(self.DATA_DIR)
-        if not path.is_absolute():
-            path = self.BASE_DIR / path
+        if self.LOCALLEDGER_DATA_DIR:
+            path = Path(self.LOCALLEDGER_DATA_DIR).resolve()
+        elif getattr(sys, "frozen", False):
+            # In frozen desktop app mode on Windows, default to %APPDATA%/LocalLedger AI/data
+            appdata = os.environ.get("APPDATA")
+            if appdata:
+                path = Path(appdata) / "LocalLedger AI" / "data"
+            else:
+                path = Path.home() / ".localledger" / "data"
+        else:
+            path = Path(self.DATA_DIR)
+            if not path.is_absolute():
+                path = self.BASE_DIR / path
         path.mkdir(parents=True, exist_ok=True)
         return path
 
     @property
     def resolved_upload_dir(self) -> Path:
-        path = Path(self.UPLOAD_DIR)
-        if not path.is_absolute():
-            path = self.BASE_DIR / path
+        if self.LOCALLEDGER_DATA_DIR or getattr(sys, "frozen", False):
+            path = self.resolved_data_dir / "uploads"
+        else:
+            path = Path(self.UPLOAD_DIR)
+            if not path.is_absolute():
+                path = self.BASE_DIR / path
         path.mkdir(parents=True, exist_ok=True)
         return path
 
     @property
     def resolved_db_path(self) -> Path:
-        path = Path(self.DB_PATH)
-        if not path.is_absolute():
-            path = self.BASE_DIR / path
+        if self.LOCALLEDGER_DATA_DIR or getattr(sys, "frozen", False):
+            path = self.resolved_data_dir / "db" / "localledger.db"
+        else:
+            path = Path(self.DB_PATH)
+            if not path.is_absolute():
+                path = self.BASE_DIR / path
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
 

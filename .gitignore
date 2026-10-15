@@ -36,7 +36,7 @@ env/
 .coverage
 htmlcov/
 
-# Node
+# Node & Desktop Builds
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -44,6 +44,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 dist/
+dist-electron/
+release/
 dist-ssr/
 *.local
 .vite/

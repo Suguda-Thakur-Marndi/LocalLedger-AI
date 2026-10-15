@@ -342,6 +342,29 @@ LocalLedger AI/
      ```
    - Access the web interface at **[http://127.0.0.1:5173](http://127.0.0.1:5173)** and backend API docs at **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)**.
 
+### Windows Desktop Application (Electron + Packaged FastAPI)
+
+LocalLedger AI can be run and packaged as a sovereign Windows desktop app with an installable `.exe` (NSIS installer):
+
+1. **Install Root Desktop Tooling**:
+   ```powershell
+   npm install
+   ```
+
+2. **Run Desktop App in Development Mode**:
+   ```powershell
+   npm run desktop:dev
+   ```
+
+3. **Build the Standalone Windows Installer**:
+   ```powershell
+   # Compiles frontend, standalone backend binary, and generates NSIS installer
+   npm run desktop:dist
+   ```
+   The installer is output to:
+   - **`dist/installer/LocalLedger AI-Setup-1.0.0.exe`**
+   - See [Windows Desktop Application Guide](docs/desktop.md) for complete details.
+
 ---
 
 ### Linux & macOS Installation
